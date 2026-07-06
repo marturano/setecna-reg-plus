@@ -2,11 +2,8 @@
 build_from:
   aarch64: "ghcr.io/home-assistant/aarch64-base:3.23"
   amd64: "ghcr.io/home-assistant/amd64-base:3.23"
-  armv7: "ghcr.io/home-assistant/armv7-base:3.23"
-  armhf: "ghcr.io/home-assistant/armhf-base:3.23"
-  i386: "ghcr.io/home-assistant/i386-base:3.23"
 labels:
-  org.opencontainers.image.title: "Home Assistant Add-on: Setecna add-on"
-  org.opencontainers.image.description: "Setecna add-on to use to integrate Setecna REG system with Home Assistant."
+  org.opencontainers.image.title: "Home Assistant Add-on: Setecna REG PLUS"
+  org.opencontainers.image.description: "Integrates a Setecna REG thermal system with Home Assistant over MQTT."
   org.opencontainers.image.source: "https://github.com/marturano/setecna-reg-plus"
   org.opencontainers.image.licenses: "Apache License 2.0"

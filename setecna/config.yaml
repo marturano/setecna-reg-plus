@@ -5,14 +5,9 @@ slug: setecna_reg_plus
 description: Setecna REG PLUS - web integration for Setecna REG thermal systems (MQTT device-based discovery)
 url: "https://github.com/marturano/setecna-reg-plus"
 arch:
-  - armhf
-  - armv7
   - aarch64
   - amd64
-  - i386
 init: false
-startup: application
-boot: auto
 options:
   systemID: null
   username: null

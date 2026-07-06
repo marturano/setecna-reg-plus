@@ -14,10 +14,7 @@ COPY . .
 # Map Home Assistant build architectures to Go targets
 RUN case "${BUILD_ARCH}" in \
         amd64)   GOARCH=amd64 ;; \
-        i386)    GOARCH=386 ;; \
         aarch64) GOARCH=arm64 ;; \
-        armv7)   GOARCH=arm GOARM=7 ;; \
-        armhf)   GOARCH=arm GOARM=6 ;; \
         *) echo "Unsupported BUILD_ARCH: ${BUILD_ARCH}" && exit 1 ;; \
     esac \
     && CGO_ENABLED=0 GOOS=linux GOARCH=${GOARCH} GOARM=${GOARM:-} \

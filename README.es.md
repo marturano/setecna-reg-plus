@@ -12,9 +12,6 @@ Este repositorio contiene el add-on de Home Assistant que integra un sistema té
 
 ![Compatible con arquitectura aarch64][aarch64-shield]
 ![Compatible con arquitectura amd64][amd64-shield]
-![Compatible con arquitectura armv7][armv7-shield]
-![Compatible con arquitectura armhf][armhf-shield]
-![Compatible con arquitectura i386][i386-shield]
 
 ---
 
@@ -81,6 +78,3 @@ Este add-on es un fork del proyecto original [homeassistant-addon-setecna](https
 
 [aarch64-shield]: https://img.shields.io/badge/aarch64-yes-green.svg
 [amd64-shield]: https://img.shields.io/badge/amd64-yes-green.svg
-[armv7-shield]: https://img.shields.io/badge/armv7-yes-green.svg
-[armhf-shield]: https://img.shields.io/badge/armhf-yes-green.svg
-[i386-shield]: https://img.shields.io/badge/i386-yes-green.svg

@@ -12,9 +12,6 @@ Dieses Repository enth채lt das Home-Assistant-Add-on, das ein **Setecna-REG**-W�
 
 ![Unterst체tzt aarch64-Architektur][aarch64-shield]
 ![Unterst체tzt amd64-Architektur][amd64-shield]
-![Unterst체tzt armv7-Architektur][armv7-shield]
-![Unterst체tzt armhf-Architektur][armhf-shield]
-![Unterst체tzt i386-Architektur][i386-shield]
 
 ---
 
@@ -81,6 +78,3 @@ Dieses Add-on ist ein Fork des urspr체nglichen Projekts [homeassistant-addon-set
 
 [aarch64-shield]: https://img.shields.io/badge/aarch64-yes-green.svg
 [amd64-shield]: https://img.shields.io/badge/amd64-yes-green.svg
-[armv7-shield]: https://img.shields.io/badge/armv7-yes-green.svg
-[armhf-shield]: https://img.shields.io/badge/armhf-yes-green.svg
-[i386-shield]: https://img.shields.io/badge/i386-yes-green.svg

@@ -12,9 +12,6 @@ Ce dépôt contient l'add-on Home Assistant qui intègre un système thermique *
 
 ![Prend en charge l'architecture aarch64][aarch64-shield]
 ![Prend en charge l'architecture amd64][amd64-shield]
-![Prend en charge l'architecture armv7][armv7-shield]
-![Prend en charge l'architecture armhf][armhf-shield]
-![Prend en charge l'architecture i386][i386-shield]
 
 ---
 
@@ -81,6 +78,3 @@ Cet add-on est un fork du projet original [homeassistant-addon-setecna](https://
 
 [aarch64-shield]: https://img.shields.io/badge/aarch64-yes-green.svg
 [amd64-shield]: https://img.shields.io/badge/amd64-yes-green.svg
-[armv7-shield]: https://img.shields.io/badge/armv7-yes-green.svg
-[armhf-shield]: https://img.shields.io/badge/armhf-yes-green.svg
-[i386-shield]: https://img.shields.io/badge/i386-yes-green.svg
