@@ -20,8 +20,9 @@ Dieses Repository enthält das Home-Assistant-Add-on, das ein **Setecna-REG**-W�
 
 ## Funktionen
 
-- **Ein einziges MQTT-Gerät**, das alle Diagnose- und Konfigurationsentitäten Ihres Setecna-Systems bereitstellt (erfordert Home Assistant **2024.11+**, getestet bis **2026.7**).
-- **Native Klimaentitäten** (optionaler Modus *Erweiterte Integration*) für jede aktive Zone, mit Heiz-/Kühl-`hvac_action`, saisonalen Economy-/Comfort-Sollwerten und, sofern verfügbar, Feuchteregelung.
+- **Ein Home-Assistant-Gerät pro Element** (Hauptgerät *Setecna REG* plus je eines pro Zone, Kreis, Quelle, Wärmepumpe und ACS): Entitäten sind gruppiert und eine ganze Zone lässt sich über ihre Geräteseite umbenennen (erfordert Home Assistant **2024.11+**, getestet bis **2026.7**).
+- **Hauptbedienelemente** (wenn beschreibbar): Anlage **ein/aus**, **Saison** (Winter/Sommer) und **ACS ein/aus**.
+- **Native Klimaentitäten** (optionaler Modus *Erweiterte Integration*) für jede aktive Zone, mit Heiz-/Kühl-`hvac_action`, einer einzelnen Zieltemperatur (dem Comfort-Sollwert der Saison), übersetzten Presets (`eco`/`comfort`) und, sofern verfügbar, Feuchteregelung.
 - **Zusätzliche Gerätefamilien** als schreibgeschützte Diagnose: Wärmepumpeneinheiten und Kaskadenregler, OpenTherm-Generatorkaskade (wenn aktiviert), Relaisausgänge der Platine, Systemalarme, Zonen-Taupunkt, Kreis-Rücklauftemperaturen und -Pumpen, Quellentemperaturen und 32-Bit-Energiezähler. Nicht verfügbare Kanäle bleiben *unbekannt*, statt Unsinnswerte anzuzeigen.
 - **Umbenennen von Entitäten in den Add-on-Einstellungen**: eine Zone einmal benennen, alle ihre Entitäten übernehmen den Namen.
 - **Verfügbarkeitsüberwachung** per MQTT Last Will: Entitäten werden `unavailable`, wenn das Add-on stoppt.
@@ -51,6 +52,7 @@ Dieses Repository enthält das Home-Assistant-Add-on, das ein **Setecna-REG**-W�
 | `mqtt_username` | nein | Benutzername des eigenen Brokers (leer = anonym) |
 | `mqtt_password` | nein | Passwort des eigenen Brokers |
 | `entity_names` | nein | Namensüberschreibungen, ein `PRÄFIX=Name` pro Eintrag (siehe unten) |
+| `active_zones` | nein | Anzuzeigende Zonennummern; leer = alle erkannten Zonen |
 
 ### Entitäten umbenennen
 

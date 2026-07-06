@@ -40,3 +40,10 @@ configuration:
       thermostat...). Use a zone/circuit/source prefix (Z1, C1, S1, HP0) or an
       exact parameter id (GLOBAL_OUTPUT_3=Recirculation pump). The add-on log
       lists your Setecna custom labels to copy from.
+  active_zones:
+    name: Zones to expose
+    description: >-
+      Optional allowlist of zone numbers to expose (e.g. 1, 2, 3). Zones detected
+      on the panel but not listed here - and all their sensors, controls and
+      thermostat - are hidden and removed from Home Assistant. Leave empty to
+      expose every detected zone.

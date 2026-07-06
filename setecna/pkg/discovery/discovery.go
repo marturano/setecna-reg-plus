@@ -11,8 +11,10 @@ import (
 	"fmt"
 	"log/slog"
 	"regexp"
+	"strconv"
 	"strings"
 	"time"
+	"unicode"
 
 	"github.com/Ingordigia/homeassistant-addon-setecna/models"
 	"github.com/Ingordigia/homeassistant-addon-setecna/pkg/helpers"
@@ -22,7 +24,7 @@ import (
 
 const (
 	// Version of the add-on, shown as origin/software version in HA.
-	Version = "1.0.0"
+	Version = "1.0.1"
 
 	discoveryPrefix = "homeassistant"
 	// REBRAND: if you fork this under a different GitHub owner/repo name,
@@ -39,6 +41,11 @@ type Bridge struct {
 	// ("GLOBAL_OUTPUT_3"). A prefix override renames every entity of that
 	// element (e.g. "Zone 1 temperature" -> "Bagni temperature").
 	Names map[string]string
+	// ActiveZones, when non-nil, is an allowlist of zone numbers to expose.
+	// Zones detected on the panel but not in this set (and all their
+	// entities and thermostat) are excluded and, if previously published,
+	// removed. nil means "expose every detected zone" (default behaviour).
+	ActiveZones map[int]bool
 }
 
 // New creates a Bridge for the given system. names may be nil.
@@ -67,34 +74,123 @@ var (
 	}
 )
 
-// friendlyName applies user name overrides. key is the parameter id (or a
-// synthetic "Z<n>" for climate), defaultName is the built-in English name.
-// An exact-id override wins over a prefix override; a prefix override
-// replaces the leading "<Word> <n>" so the role suffix is preserved.
-func (b *Bridge) friendlyName(key, defaultName string) string {
-	if b.Names == nil {
-		return defaultName
+// nameOr returns the user override for key, or def when none is set.
+func (b *Bridge) nameOr(key, def string) string {
+	if b.Names != nil {
+		if n, ok := b.Names[key]; ok && n != "" {
+			return n
+		}
 	}
-	if n, ok := b.Names[key]; ok && n != "" {
-		return n
+	return def
+}
+
+// elementOf returns the element a parameter belongs to ("Z1", "C1", "S1",
+// "HP0", "EM1", "OT_G0", "HPC"), or "" for system-level parameters that live
+// on the main device.
+func elementOf(key string) string {
+	if strings.HasPrefix(key, "HPC_") {
+		return "HPC"
+	}
+	// Domestic hot water gets its own device. It mixes "ACS_*" element params
+	// with a few ACS-related globals; heat-pump/source "*_TACS" temps are
+	// matched by leadRe below and stay on their own device.
+	if strings.HasPrefix(key, "ACS_") ||
+		key == "GLOBAL_ACS_ENABLE" || key == "GLOBAL_T_ACS" || key == "GLOBAL_SET_ACS" {
+		return "ACS"
 	}
 	m := leadRe.FindStringSubmatch(key)
 	if m == nil {
-		return defaultName
+		return ""
 	}
-	prefix := m[1] + m[2] // e.g. "Z" + "1"
-	n, ok := b.Names[prefix]
-	if !ok || n == "" {
-		return defaultName
+	switch m[1] {
+	case "Z", "C", "S", "HP", "EM", "OT_G":
+		return m[1] + m[2]
 	}
-	lead := leadWords[m[1]] + " " + m[2] // e.g. "Zone 1"
-	if defaultName == lead {
-		return n
+	return ""
+}
+
+// elementLead returns the default English lead of an element ("Zone 1",
+// "Heat pump controller", ...), used both as the default device name and as
+// the prefix stripped from entity labels.
+func elementLead(elem string) string {
+	if elem == "HPC" {
+		return "Heat pump controller"
 	}
-	if strings.HasPrefix(defaultName, lead+" ") {
-		return n + defaultName[len(lead):] // "Bagni" + " temperature"
+	if elem == "ACS" {
+		return "ACS"
 	}
+	m := leadRe.FindStringSubmatch(elem)
+	if m == nil {
+		return elem
+	}
+	return leadWords[m[1]] + " " + m[2]
+}
+
+// elementModel returns the device model shown in Home Assistant.
+func elementModel(elem string) string {
+	if elem == "HPC" {
+		return "Heat pump controller"
+	}
+	if elem == "ACS" {
+		return "Domestic hot water"
+	}
+	m := leadRe.FindStringSubmatch(elem)
+	if m == nil {
+		return ""
+	}
+	return leadWords[m[1]]
+}
+
+// deviceName returns the (possibly user-overridden) name of an element device.
+func (b *Bridge) deviceName(elem string) string {
+	return b.nameOr(elem, elementLead(elem))
+}
+
+// entityLabel returns the entity-specific part of a name. For element entities
+// it strips the leading "<Element> " so Home Assistant composes
+// "<device name> <label>"; for main-device entities it returns the full name.
+// An exact parameter-id override always wins.
+func (b *Bridge) entityLabel(key string, attr models.Attributes, elem string) string {
+	if b.Names != nil {
+		if n, ok := b.Names[key]; ok && n != "" {
+			return n
+		}
+	}
+	if elem == "" {
+		return attr.Name
+	}
+	lead := elementLead(elem)
+	label := attr.Name
+	if strings.HasPrefix(attr.Name, lead+" ") {
+		label = strings.TrimSpace(attr.Name[len(lead):])
+	}
+	return capitalize(label)
+}
+
+func capitalize(s string) string {
+	if s == "" {
+		return s
+	}
+	r := []rune(s)
+	r[0] = unicode.ToUpper(r[0])
+	return string(r)
+}
+
+// zoneOf returns the zone number for a zone parameter id ("Z7_TEMP" -> 7),
+// or 0 if the key is not a zone parameter.
+func zoneOf(key string) int {
+	m := leadRe.FindStringSubmatch(key)
+	if m == nil || m[1] != "Z" {
+		return 0
+	}
+	n, _ := strconv.Atoi(m[2])
 	return n
+}
+
+// zoneExcluded reports whether the given zone number must be hidden given the
+// ActiveZones allowlist. A nil allowlist means every zone is exposed.
+func (b *Bridge) zoneExcluded(zone int) bool {
+	return zone != 0 && b.ActiveZones != nil && !b.ActiveZones[zone]
 }
 
 // AvailabilityTopic is where the add-on publishes online/offline.
@@ -110,27 +206,69 @@ func (b *Bridge) CommandTopic(param string) string { return b.BaseTopic + "/" + 
 func (b *Bridge) CommandFilter() string { return b.BaseTopic + "/+/set" }
 
 // ConfigTopic is the device-based discovery topic.
-func (b *Bridge) ConfigTopic() string {
-	return discoveryPrefix + "/device/setecna_" + b.SystemID + "/config"
+// configTopicFor returns the device-based discovery config topic for a device
+// identifier.
+func (b *Bridge) configTopicFor(identifier string) string {
+	return discoveryPrefix + "/device/setecna_" + identifier + "/config"
 }
 
-// DeviceConfig builds the full device discovery payload.
+// ConfigTopic is the discovery topic of the main device.
+func (b *Bridge) ConfigTopic() string {
+	return b.configTopicFor(b.SystemID)
+}
+
+// deviceGroup accumulates the components belonging to one Home Assistant device.
+type deviceGroup struct {
+	identifier string
+	name       string
+	model      string
+	main       bool
+	components map[string]any
+}
+
+// DeviceConfigs builds the discovery payloads: one for the main "Setecna REG"
+// device (system-level entities) and one per active element (each zone,
+// circuit, source, heat pump, ...) linked to the main device via via_device.
+// Splitting into sub-devices lets Home Assistant compose "<device> <label>"
+// names and lets the user rename a whole zone from the device page.
 //
-// params holds the enabled entities, responseMap the last full snapshot of
-// values (used to detect active zones / humidity support), advClimate
-// enables native climate entities for the active zones.
-func (b *Bridge) DeviceConfig(params models.ParamsMap, responseMap map[string]string, advClimate bool) (mqtt.Message, error) {
-	components := map[string]any{}
+// params holds the enabled entities, responseMap the last full snapshot
+// (used to detect active zones / humidity), advClimate enables native climate
+// entities. It also returns removal messages for excluded zones' sub-devices.
+func (b *Bridge) DeviceConfigs(params models.ParamsMap, responseMap map[string]string, advClimate bool) ([]mqtt.Message, error) {
+	groups := map[string]*deviceGroup{}
+	var order []string
+	group := func(elem string) *deviceGroup {
+		g, ok := groups[elem]
+		if ok {
+			return g
+		}
+		g = &deviceGroup{components: map[string]any{}}
+		if elem == "" {
+			g.identifier, g.name, g.model, g.main = b.SystemID, "Setecna REG", "REG system", true
+		} else {
+			g.identifier = b.SystemID + "_" + elem
+			g.name = b.deviceName(elem)
+			g.model = elementModel(elem)
+		}
+		groups[elem] = g
+		order = append(order, elem)
+		return g
+	}
+	group("") // the main device always exists
 
 	for key, attr := range params {
-		if cmp := b.component(key, attr); cmp != nil {
-			components[key] = cmp
+		if b.zoneExcluded(zoneOf(key)) {
+			continue // excluded zones are removed as whole sub-devices below
+		}
+		cmp := b.component(key, attr, b.entityLabel(key, attr, elementOf(key)))
+		if cmp != nil {
+			group(elementOf(key)).components[key] = cmp
 		}
 	}
 
-	// Self-update entity: reports the running add-on version and, when a
-	// newer GitHub release exists, offers the update in Home Assistant.
-	components["addon_update"] = b.updateComponent()
+	// Self-update entity lives on the main device.
+	group("").components["addon_update"] = b.updateComponent()
 
 	if advClimate {
 		season := helpers.Winter
@@ -142,39 +280,67 @@ func (b *Bridge) DeviceConfig(params models.ParamsMap, responseMap map[string]st
 			if responseMap[zone+"_SENSOR_CHN"] == "0" || responseMap[zone+"_SENSOR_CHN"] == "" {
 				continue
 			}
+			if b.zoneExcluded(i) {
+				continue
+			}
 			withHumidity := responseMap[zone+"_RH"] != "32769" && responseMap[zone+"_RH"] != ""
-			components[fmt.Sprintf("zone_%d", i)] = b.climateComponent(i, season, withHumidity)
+			group(zone).components[fmt.Sprintf("zone_%d", i)] = b.climateComponent(i, season, withHumidity)
 		}
 	}
 
-	payload := map[string]any{
-		"device": map[string]any{
-			"identifiers":  []string{b.SystemID},
-			"name":         b.SystemID,
+	var msgs []mqtt.Message
+	for _, elem := range order {
+		g := groups[elem]
+		dev := map[string]any{
+			"identifiers":  []string{g.identifier},
+			"name":         g.name,
 			"manufacturer": "Setecna",
-			"model":        "REG system",
-			"sw_version":   Version,
-		},
-		"origin": map[string]any{
-			"name":        "Setecna REG PLUS",
-			"sw_version":  Version,
-			"support_url": repoURL,
-		},
-		"availability_topic": b.AvailabilityTopic(),
-		"qos":                0,
-		"components":         components,
+			"model":        g.model,
+		}
+		if g.main {
+			dev["sw_version"] = Version
+		} else {
+			dev["via_device"] = b.SystemID
+		}
+		payload := map[string]any{
+			"device": dev,
+			"origin": map[string]any{
+				"name":        "Setecna REG PLUS",
+				"sw_version":  Version,
+				"support_url": repoURL,
+			},
+			"availability_topic": b.AvailabilityTopic(),
+			"qos":                0,
+			"components":         g.components,
+		}
+		j, err := json.Marshal(payload)
+		if err != nil {
+			return nil, fmt.Errorf("marshalling device %q discovery: %w", g.identifier, err)
+		}
+		msgs = append(msgs, mqtt.Message{
+			Topic:   b.configTopicFor(g.identifier),
+			Payload: string(j),
+			Qos:     1,
+			Retain:  true,
+		})
 	}
 
-	j, err := json.Marshal(payload)
-	if err != nil {
-		return mqtt.Message{}, fmt.Errorf("marshalling device discovery payload: %w", err)
+	// Remove sub-devices for zones that are detected but excluded by the
+	// active_zones allowlist (empty retained payload deletes the device).
+	for i := 1; i <= 32; i++ {
+		zone := fmt.Sprintf("Z%d", i)
+		if responseMap[zone+"_SENSOR_CHN"] == "0" || responseMap[zone+"_SENSOR_CHN"] == "" {
+			continue
+		}
+		if b.zoneExcluded(i) {
+			msgs = append(msgs, mqtt.Message{
+				Topic:  b.configTopicFor(b.SystemID + "_" + zone),
+				Qos:    1,
+				Retain: true,
+			})
+		}
 	}
-	return mqtt.Message{
-		Topic:   b.ConfigTopic(),
-		Payload: string(j),
-		Qos:     1,
-		Retain:  true,
-	}, nil
+	return msgs, nil
 }
 
 // updateComponent describes the add-on self-update entity.
@@ -211,17 +377,36 @@ func (b *Bridge) UpdateStateMessage(latest, releaseURL string) mqtt.Message {
 	}
 }
 
-// component maps a Setecna parameter to a discovery component config.
-func (b *Bridge) component(key string, attr models.Attributes) map[string]any {
+// setControlCategory sets the entity_category for a writable control. An empty
+// category defaults to "config" (tucked into the device's configuration
+// section); the sentinel "primary" leaves it unset so the control appears as a
+// main entity (and is exposed prominently to voice assistants).
+func setControlCategory(base map[string]any, category string) {
+	if category == "" {
+		category = "config"
+	}
+	if category != "primary" {
+		base["entity_category"] = category
+	}
+}
+
+// component maps a Setecna parameter to a discovery component config. name is
+// the entity label (already stripped of the element prefix by the caller).
+func (b *Bridge) component(key string, attr models.Attributes, name string) map[string]any {
 	base := map[string]any{
 		"platform":  attr.EntityType,
 		"unique_id": b.SystemID + "_" + key,
-		"name":      b.friendlyName(key, attr.Name),
+		"name":      name,
 	}
 	addIf := func(k, v string) {
 		if v != "" {
 			base[k] = v
 		}
+	}
+	// Command param may differ from the read key (see Attributes.WriteKey).
+	cmdKey := key
+	if attr.WriteKey != "" {
+		cmdKey = attr.WriteKey
 	}
 
 	switch attr.EntityType {
@@ -235,6 +420,11 @@ func (b *Bridge) component(key string, attr models.Attributes) map[string]any {
 			base["entity_category"] = attr.EntityCategory
 		} else if !primarySensor[attr.DeviceClass] {
 			base["entity_category"] = "diagnostic"
+		}
+		// Diagnostic entities are created but disabled by default to keep the
+		// device page uncluttered; the user can enable the ones they want.
+		if base["entity_category"] == "diagnostic" {
+			base["enabled_by_default"] = false
 		}
 		addIf("device_class", attr.DeviceClass)
 		addIf("value_template", attr.ValueTemplate)
@@ -253,15 +443,18 @@ func (b *Bridge) component(key string, attr models.Attributes) map[string]any {
 		} else {
 			base["entity_category"] = "diagnostic"
 		}
+		if base["entity_category"] == "diagnostic" {
+			base["enabled_by_default"] = false
+		}
 		base["payload_on"] = "on"
 		base["payload_off"] = "off"
 		addIf("device_class", attr.DeviceClass)
 		addIf("value_template", attr.ValueTemplate)
 	case "number":
 		base["state_topic"] = b.StateTopic(key)
-		base["command_topic"] = b.CommandTopic(key)
+		base["command_topic"] = b.CommandTopic(cmdKey)
 		base["command_template"] = "{{ (value * 10) | int }}"
-		base["entity_category"] = "config"
+		setControlCategory(base, attr.EntityCategory)
 		base["mode"] = "slider"
 		base["min"] = attr.Min
 		base["max"] = attr.Max
@@ -269,10 +462,18 @@ func (b *Bridge) component(key string, attr models.Attributes) map[string]any {
 		addIf("device_class", attr.DeviceClass)
 		addIf("unit_of_measurement", attr.UnitOfMeasurement)
 		addIf("value_template", attr.ValueTemplate)
+	case "switch":
+		base["state_topic"] = b.StateTopic(key)
+		base["command_topic"] = b.CommandTopic(cmdKey)
+		base["payload_on"] = "1"
+		base["payload_off"] = "0"
+		setControlCategory(base, attr.EntityCategory)
+		addIf("device_class", attr.DeviceClass)
+		addIf("value_template", attr.ValueTemplate)
 	case "select":
 		base["state_topic"] = b.StateTopic(key)
-		base["command_topic"] = b.CommandTopic(key)
-		base["entity_category"] = "config"
+		base["command_topic"] = b.CommandTopic(cmdKey)
+		setControlCategory(base, attr.EntityCategory)
 		base["options"] = attr.Options
 		addIf("command_template", attr.CommandTemplate)
 		addIf("value_template", attr.ValueTemplate)
@@ -299,7 +500,9 @@ func (b *Bridge) climateComponent(zone int, season helpers.Season, withHumidity 
 	c := map[string]any{
 		"platform":  "climate",
 		"unique_id": fmt.Sprintf("%s_zone_%d", b.SystemID, zone),
-		"name":      b.friendlyName(fmt.Sprintf("Z%d", zone), fmt.Sprintf("Zone %d", zone)),
+		// name is null: the thermostat is the main entity of the zone device,
+		// so Home Assistant shows it with the device name (e.g. "Soggiorno").
+		"name": nil,
 
 		"current_temperature_topic":    b.StateTopic(z + "_TEMP"),
 		"current_temperature_template": scaleDown,
@@ -324,32 +527,31 @@ func (b *Bridge) climateComponent(zone int, season helpers.Season, withHumidity 
 		"action_template": fmt.Sprintf(
 			`{%% if value == "1" %%}%s{%% else %%}idle{%% endif %%}`, action),
 
-		// Presets expose the finer forcing levels of the REG controller.
-		"preset_modes":                 []string{"forced off", "forced economy", "forced comfort"},
+		// Presets map to Home Assistant's standard constants so the frontend
+		// translates them automatically: "eco" = REG economy forcing (2),
+		// "comfort" = comfort forcing (3), "none" = automatic (0). The
+		// forced-off state is represented by the HVAC "off" mode, not a preset.
+		"preset_modes":                 []string{"eco", "comfort"},
 		"preset_mode_command_topic":    b.CommandTopic(z + "_FORCING"),
-		"preset_mode_command_template": `{% if value == "forced off" %}1{% elif value == "forced economy" %}2{% elif value == "forced comfort" %}3{% else %}0{% endif %}`,
+		"preset_mode_command_template": `{% if value == "eco" %}2{% elif value == "comfort" %}3{% else %}0{% endif %}`,
 		"preset_mode_state_topic":      b.StateTopic(z + "_FORCING"),
-		"preset_mode_value_template":   `{% if value == "1" %}forced off{% elif value == "2" %}forced economy{% elif value == "3" %}forced comfort{% else %}none{% endif %}`,
+		"preset_mode_value_template":   `{% if value == "2" %}eco{% elif value == "3" %}comfort{% else %}none{% endif %}`,
 	}
 
-	// The REG controller exposes economy/comfort setpoints per season:
-	// EW/CW (winter economy/comfort), ES/CS (summer economy/comfort).
-	// The climate temperature_low/high pair maps to economy/comfort.
+	// Single target temperature mapped to the comfort setpoint of the active
+	// season (CW winter / CS summer). A single setpoint - instead of a
+	// low/high range - is what Alexa (and most UIs) expect for a heat-only or
+	// cool-only thermostat: a range in a single-mode climate makes Alexa hang
+	// on load. The economy setpoint stays adjustable as its own number entity
+	// (Z*_SET_EW / Z*_SET_ES).
+	comfort := z + "_SET_CW"
 	if season == helpers.Summer {
-		c["temperature_high_state_topic"] = b.StateTopic(z + "_SET_ES")
-		c["temperature_high_command_topic"] = b.CommandTopic(z + "_SET_ES")
-		c["temperature_low_state_topic"] = b.StateTopic(z + "_SET_CS")
-		c["temperature_low_command_topic"] = b.CommandTopic(z + "_SET_CS")
-	} else {
-		c["temperature_low_state_topic"] = b.StateTopic(z + "_SET_EW")
-		c["temperature_low_command_topic"] = b.CommandTopic(z + "_SET_EW")
-		c["temperature_high_state_topic"] = b.StateTopic(z + "_SET_CW")
-		c["temperature_high_command_topic"] = b.CommandTopic(z + "_SET_CW")
+		comfort = z + "_SET_CS"
 	}
-	c["temperature_low_state_template"] = scaleDown
-	c["temperature_low_command_template"] = scaleUp
-	c["temperature_high_state_template"] = scaleDown
-	c["temperature_high_command_template"] = scaleUp
+	c["temperature_state_topic"] = b.StateTopic(comfort)
+	c["temperature_state_template"] = scaleDown
+	c["temperature_command_topic"] = b.CommandTopic(comfort)
+	c["temperature_command_template"] = scaleUp
 
 	if withHumidity {
 		c["current_humidity_topic"] = b.StateTopic(z + "_RH")
@@ -370,6 +572,9 @@ func (b *Bridge) StateMessages(resp scraper.Response, params models.ParamsMap) m
 	msgs := make(mqtt.Messages, 0, len(resp.Data))
 	for _, d := range resp.Data {
 		if _, ok := params[d.ID]; !ok {
+			continue
+		}
+		if b.zoneExcluded(zoneOf(d.ID)) {
 			continue
 		}
 		payload := string(d.V)

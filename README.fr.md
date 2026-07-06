@@ -20,8 +20,9 @@ Ce dépôt contient l'add-on Home Assistant qui intègre un système thermique *
 
 ## Fonctionnalités
 
-- **Un seul appareil MQTT** exposant toutes les entités de diagnostic et de configuration de votre système Setecna (nécessite Home Assistant **2024.11+**, validé jusqu'à **2026.7**).
-- **Entités climate natives** (mode *Intégration avancée* facultatif) pour chaque zone active, avec `hvac_action` chauffage/refroidissement, consignes économie/confort saisonnières et, si disponible, contrôle de l'humidité.
+- **Un appareil Home Assistant par élément** (appareil principal *Setecna REG* plus un par zone, circuit, source, pompe à chaleur et ACS) : les entités sont regroupées et une zone entière peut être renommée depuis sa page d'appareil (nécessite Home Assistant **2024.11+**, validé jusqu'à **2026.7**).
+- **Commandes principales** (si accessible en écriture) : **marche/arrêt** de l'installation, **saison** (hiver/été) et **marche/arrêt ACS**.
+- **Entités climate natives** (mode *Intégration avancée* facultatif) pour chaque zone active, avec `hvac_action` chauffage/refroidissement, une seule température cible (la consigne confort de la saison), des presets traduits (`eco`/`comfort`) et, si disponible, contrôle de l'humidité.
 - **Familles d'appareils supplémentaires** exposées en diagnostic lecture seule : unités de pompe à chaleur et régulateur de cascade, cascade de générateurs OpenTherm (si activée), sorties relais de la carte, alarmes système, point de rosée de zone, températures de retour et pompes des circuits, températures des sources et totaux d'énergie sur 32 bits. Les canaux indisponibles restent *inconnus* au lieu d'afficher des valeurs erronées.
 - **Renommage des entités depuis les réglages de l'add-on** : nommez une zone une fois et toutes ses entités suivent.
 - **Suivi de disponibilité** via MQTT Last Will : les entités passent en `unavailable` si l'add-on s'arrête.
@@ -51,6 +52,7 @@ Ce dépôt contient l'add-on Home Assistant qui intègre un système thermique *
 | `mqtt_username` | non | Nom d'utilisateur du broker personnalisé (vide = anonyme) |
 | `mqtt_password` | non | Mot de passe du broker personnalisé |
 | `entity_names` | non | Renommage des entités, une entrée `PRÉFIXE=Nom` (voir ci-dessous) |
+| `active_zones` | non | Numéros de zone à exposer ; vide = toutes les zones détectées |
 
 ### Renommage des entités
 

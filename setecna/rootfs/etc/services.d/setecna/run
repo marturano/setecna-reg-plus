@@ -47,6 +47,11 @@ if bashio::config.has_value 'entity_names'; then
     export ENTITY_NAMES="$(bashio::config 'entity_names[]')"
 fi
 
+# Zone allowlist: only these zone numbers are exposed (empty = all zones).
+if bashio::config.has_value 'active_zones'; then
+    export ACTIVE_ZONES="$(bashio::config 'active_zones[]')"
+fi
+
 bashio::log.info "System ID: ${REG_SYSTEM_ID} - MQTT broker: ${MQTT_HOST}:${MQTT_PORT}"
 
 exec /usr/bin/app

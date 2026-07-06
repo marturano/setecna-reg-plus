@@ -20,8 +20,9 @@ Questo repository contiene l'add-on che integra un sistema termico **Setecna REG
 
 ## Funzionalità
 
-- **Un singolo device MQTT** con tutte le entità diagnostiche e di configurazione del sistema (richiede Home Assistant **2024.11+**, verificato fino alla **2026.7**).
-- **Entità climate native** (modalità *Integrazione avanzata*) per ogni zona attiva, con `hvac_action` riscaldamento/raffrescamento, setpoint economy/comfort stagionali e, dove disponibile, controllo umidità.
+- **Un device Home Assistant per elemento** (device principale *Setecna REG* più uno per ogni zona, circuito, sorgente, pompa di calore e ACS): le entità sono raggruppate e puoi rinominare un'intera zona dalla sua pagina device (richiede Home Assistant **2024.11+**, verificato fino alla **2026.7**).
+- **Controlli master** (quando scrivibile): **on/off** impianto, **stagione** (inverno/estate) e **on/off ACS**.
+- **Entità climate native** (modalità *Integrazione avanzata*) per ogni zona attiva, con `hvac_action` riscaldamento/raffrescamento, una singola temperatura target (il setpoint comfort della stagione), preset tradotti (`eco`/`comfort`) e, dove disponibile, controllo umidità.
 - **Famiglie di dispositivi aggiuntive** esposte come diagnostica in sola lettura: unità pompa di calore e controllore cascata, cascata generatori OpenTherm (quando abilitata), uscite relè della scheda, allarmi di sistema, punto di rugiada di zona, temperature di ritorno e pompe dei circuiti, temperature delle sorgenti e totalizzatori energia a 32 bit. I canali non disponibili restano *sconosciuti* invece di mostrare valori spuri.
 - **Rinomina delle entità dalle impostazioni dell'add-on**: dai il nome a una zona e tutte le sue entità lo ereditano.
 - **Tracciamento disponibilità** tramite Last Will MQTT: le entità diventano `unavailable` se l'add-on si ferma.
@@ -51,6 +52,7 @@ Questo repository contiene l'add-on che integra un sistema termico **Setecna REG
 | `mqtt_username` | no | Nome utente del broker personalizzato (vuoto = anonimo) |
 | `mqtt_password` | no | Password del broker personalizzato |
 | `entity_names` | no | Rinomina entità, una voce `PREFISSO=Nome` (vedi sotto) |
+| `active_zones` | no | Numeri di zona da esporre; vuoto = tutte le zone rilevate |
 
 ### Rinomina delle entità
 

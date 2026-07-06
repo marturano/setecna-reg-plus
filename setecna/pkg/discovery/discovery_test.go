@@ -6,6 +6,7 @@ import (
 	"testing"
 
 	"github.com/Ingordigia/homeassistant-addon-setecna/models"
+	"github.com/Ingordigia/homeassistant-addon-setecna/pkg/mqtt"
 	"github.com/Ingordigia/homeassistant-addon-setecna/pkg/scraper"
 )
 
@@ -21,44 +22,98 @@ func testResponseMap() map[string]string {
 	}
 }
 
+// allComponents merges the components of every device message from
+// DeviceConfigs, so tests can look up a component regardless of which
+// sub-device it now lives on. Removal messages (empty payload) are skipped.
+func allComponents(t *testing.T, b *Bridge, params models.ParamsMap, rm map[string]string, adv bool) map[string]map[string]any {
+	t.Helper()
+	msgs, err := b.DeviceConfigs(params, rm, adv)
+	if err != nil {
+		t.Fatal(err)
+	}
+	out := map[string]map[string]any{}
+	for _, m := range msgs {
+		if m.Payload == "" {
+			continue
+		}
+		var p struct {
+			Components map[string]map[string]any `json:"components"`
+		}
+		if err := json.Unmarshal([]byte(m.Payload), &p); err != nil {
+			t.Fatalf("payload not JSON: %v", err)
+		}
+		for k, v := range p.Components {
+			out[k] = v
+		}
+	}
+	return out
+}
+
+// deviceOf returns the device block of the message that contains compKey.
+func deviceOf(t *testing.T, b *Bridge, params models.ParamsMap, rm map[string]string, adv bool, compKey string) map[string]any {
+	t.Helper()
+	msgs, _ := b.DeviceConfigs(params, rm, adv)
+	for _, m := range msgs {
+		if m.Payload == "" {
+			continue
+		}
+		var p struct {
+			Device     map[string]any            `json:"device"`
+			Components map[string]map[string]any `json:"components"`
+		}
+		json.Unmarshal([]byte(m.Payload), &p)
+		if _, ok := p.Components[compKey]; ok {
+			return p.Device
+		}
+	}
+	return nil
+}
+
 func TestDeviceConfig(t *testing.T) {
 	b := New("SYS1", nil)
 	params := make(models.ParamsMap)
 	params.AddEnabledParams(testResponseMap(), false)
 
-	msg, err := b.DeviceConfig(params, testResponseMap(), true)
+	msgs, err := b.DeviceConfigs(params, testResponseMap(), true)
 	if err != nil {
 		t.Fatal(err)
 	}
-	if msg.Topic != "homeassistant/device/setecna_SYS1/config" {
-		t.Fatalf("wrong topic: %s", msg.Topic)
+	// The main device carries origin + availability and lives at the main topic.
+	var main mqtt.Message
+	for _, m := range msgs {
+		if m.Topic == "homeassistant/device/setecna_SYS1/config" {
+			main = m
+		}
 	}
-	if !msg.Retain {
+	if main.Topic == "" {
+		t.Fatal("main device config missing")
+	}
+	if !main.Retain {
 		t.Fatal("discovery payload must be retained")
 	}
-
-	var payload struct {
+	var mainPayload struct {
 		Device struct {
 			Identifiers []string `json:"identifiers"`
 		} `json:"device"`
 		Origin struct {
 			Name string `json:"name"`
 		} `json:"origin"`
-		AvailabilityTopic string                    `json:"availability_topic"`
-		Components        map[string]map[string]any `json:"components"`
+		AvailabilityTopic string `json:"availability_topic"`
 	}
-	if err := json.Unmarshal([]byte(msg.Payload), &payload); err != nil {
+	if err := json.Unmarshal([]byte(main.Payload), &mainPayload); err != nil {
 		t.Fatalf("payload is not valid JSON: %v", err)
 	}
-	if payload.Origin.Name == "" {
+	if mainPayload.Origin.Name == "" {
 		t.Fatal("origin is required by device-based discovery")
 	}
-	if payload.AvailabilityTopic != "setecna/SYS1/availability" {
-		t.Fatalf("wrong availability topic: %s", payload.AvailabilityTopic)
+	if mainPayload.AvailabilityTopic != "setecna/SYS1/availability" {
+		t.Fatalf("wrong availability topic: %s", mainPayload.AvailabilityTopic)
 	}
 
+	components := allComponents(t, b, params, testResponseMap(), true)
+
 	// Zone 1: climate with humidity, Zone 2: without, Zone 3: absent.
-	z1, ok := payload.Components["zone_1"]
+	z1, ok := components["zone_1"]
 	if !ok {
 		t.Fatal("zone_1 climate missing")
 	}
@@ -68,36 +123,56 @@ func TestDeviceConfig(t *testing.T) {
 	if z1["unique_id"] != "SYS1_zone_1" {
 		t.Fatalf("zone_1 unique_id = %v (must match v1 for seamless migration)", z1["unique_id"])
 	}
+	// The thermostat is the main entity of its zone device: name must be null.
+	if name, present := z1["name"]; !present || name != nil {
+		t.Fatalf("zone_1 climate name must be null (main entity), got %v", name)
+	}
 	if _, ok := z1["current_humidity_topic"]; !ok {
 		t.Fatal("zone_1 should expose humidity")
 	}
-	z2 := payload.Components["zone_2"]
+	z2 := components["zone_2"]
 	if _, ok := z2["current_humidity_topic"]; ok {
 		t.Fatal("zone_2 should NOT expose humidity")
 	}
-	if _, ok := payload.Components["zone_3"]; ok {
+	if _, ok := components["zone_3"]; ok {
 		t.Fatal("inactive zone_3 must not be discovered")
 	}
 
-	// Winter: heat mode and EW/CW setpoints.
+	// zone_1 lives on its own sub-device linked to the main via via_device.
+	dev := deviceOf(t, b, params, testResponseMap(), true, "zone_1")
+	if dev == nil || dev["via_device"] != "SYS1" {
+		t.Fatalf("zone_1 should be on a sub-device linked via_device to SYS1, got %v", dev)
+	}
+	if ids, _ := dev["identifiers"].([]any); len(ids) == 0 || ids[0] != "SYS1_Z1" {
+		t.Fatalf("zone_1 sub-device identifier wrong: %v", dev["identifiers"])
+	}
+
+	// Winter: heat mode and single target = comfort (CW) setpoint.
 	if !strings.Contains(z1["mode_state_template"].(string), "heat") {
 		t.Fatal("winter climates must use heat mode")
 	}
-	if z1["temperature_low_state_topic"] != "setecna/SYS1/Z1_SET_EW" {
-		t.Fatalf("winter economy setpoint topic wrong: %v", z1["temperature_low_state_topic"])
+	if z1["temperature_state_topic"] != "setecna/SYS1/Z1_SET_CW" {
+		t.Fatalf("winter target setpoint topic wrong: %v", z1["temperature_state_topic"])
+	}
+	// A single setpoint (no low/high range) is required for Alexa.
+	if _, ok := z1["temperature_low_state_topic"]; ok {
+		t.Fatal("climate must expose a single target, not a low/high range")
+	}
+	// Presets must be HA standard constants so the frontend translates them.
+	pm, _ := z1["preset_modes"].([]any)
+	if len(pm) != 2 || pm[0] != "eco" || pm[1] != "comfort" {
+		t.Fatalf("preset_modes must be [eco comfort], got %v", z1["preset_modes"])
 	}
 
 	// Every component must have platform + unique_id and state topics
 	// outside the discovery prefix.
-	for id, cmp := range payload.Components {
+	for id, cmp := range components {
 		if cmp["platform"] == nil || cmp["unique_id"] == nil {
 			t.Fatalf("component %s missing platform/unique_id", id)
 		}
 		if st, ok := cmp["state_topic"].(string); ok && strings.HasPrefix(st, "homeassistant/") {
 			t.Fatalf("component %s keeps state under the discovery prefix: %s", id, st)
 		}
-		// enum sensors require an options list and must not carry
-		// state_class or unit_of_measurement.
 		if cmp["device_class"] == "enum" {
 			if _, ok := cmp["options"]; !ok {
 				t.Fatalf("enum component %s missing options", id)
@@ -140,31 +215,18 @@ func TestSeasonSummer(t *testing.T) {
 	b := New("SYS1", nil)
 	rm := testResponseMap()
 	rm["GLOBAL_SEASON"] = "1"
-	msg, err := b.DeviceConfig(models.ParamsMap{}, rm, true)
-	if err != nil {
-		t.Fatal(err)
-	}
-	var payload struct {
-		Components map[string]map[string]any `json:"components"`
-	}
-	json.Unmarshal([]byte(msg.Payload), &payload)
-	z1 := payload.Components["zone_1"]
+	z1 := allComponents(t, b, models.ParamsMap{}, rm, true)["zone_1"]
 	if !strings.Contains(z1["action_template"].(string), "cooling") {
 		t.Fatal("summer climates must report cooling action")
 	}
-	if z1["temperature_high_state_topic"] != "setecna/SYS1/Z1_SET_ES" {
-		t.Fatalf("summer economy setpoint topic wrong: %v", z1["temperature_high_state_topic"])
+	if z1["temperature_state_topic"] != "setecna/SYS1/Z1_SET_CS" {
+		t.Fatalf("summer target setpoint topic wrong: %v", z1["temperature_state_topic"])
 	}
 }
 
 func TestClimateModeFromForcing(t *testing.T) {
 	b := New("SYS1", nil)
-	msg, _ := b.DeviceConfig(models.ParamsMap{}, testResponseMap(), true)
-	var payload struct {
-		Components map[string]map[string]any `json:"components"`
-	}
-	json.Unmarshal([]byte(msg.Payload), &payload)
-	z1 := payload.Components["zone_1"]
+	z1 := allComponents(t, b, models.ParamsMap{}, testResponseMap(), true)["zone_1"]
 
 	// Mode must be driven by FORCING, not by the relay output.
 	if z1["mode_state_topic"] != "setecna/SYS1/Z1_FORCING" {
@@ -186,12 +248,7 @@ func TestClimateModeFromForcing(t *testing.T) {
 
 func TestUpdateEntity(t *testing.T) {
 	b := New("SYS1", nil)
-	msg, _ := b.DeviceConfig(models.ParamsMap{}, testResponseMap(), false)
-	var payload struct {
-		Components map[string]map[string]any `json:"components"`
-	}
-	json.Unmarshal([]byte(msg.Payload), &payload)
-	up, ok := payload.Components["addon_update"]
+	up, ok := allComponents(t, b, models.ParamsMap{}, testResponseMap(), false)["addon_update"]
 	if !ok {
 		t.Fatal("update entity missing from discovery")
 	}
@@ -220,42 +277,51 @@ func TestUpdateEntity(t *testing.T) {
 	}
 }
 
-func TestFriendlyNameOverrides(t *testing.T) {
+func TestNaming(t *testing.T) {
 	names := map[string]string{
 		"Z1":              "Bagni",
 		"GLOBAL_OUTPUT_3": "Recirculation pump",
 	}
 	b := New("SYS1", names)
 
-	// Prefix override keeps the role suffix.
-	if got := b.friendlyName("Z1_TEMP", "Zone 1 temperature"); got != "Bagni temperature" {
-		t.Fatalf("prefix override wrong: %q", got)
+	// Element device name comes from the override; entity label is the
+	// stripped, capitalised remainder.
+	if got := b.deviceName("Z1"); got != "Bagni" {
+		t.Fatalf("zone device name = %q", got)
 	}
-	if got := b.friendlyName("Z1_DEWPOINT", "Zone 1 dew point"); got != "Bagni dew point" {
-		t.Fatalf("prefix override (dew point) wrong: %q", got)
+	if got := b.deviceName("Z2"); got != "Zone 2" {
+		t.Fatalf("un-overridden zone device name = %q", got)
 	}
-	// Climate uses the bare name.
-	if got := b.friendlyName("Z1", "Zone 1"); got != "Bagni" {
-		t.Fatalf("climate override wrong: %q", got)
+	if got := b.entityLabel("Z1_TEMP", models.Attributes{Name: "Zone 1 temperature"}, "Z1"); got != "Temperature" {
+		t.Fatalf("entity label = %q", got)
 	}
-	// Zones without override are untouched.
-	if got := b.friendlyName("Z2_TEMP", "Zone 2 temperature"); got != "Zone 2 temperature" {
-		t.Fatalf("non-overridden zone changed: %q", got)
+	if got := b.entityLabel("Z1_DEWPOINT", models.Attributes{Name: "Zone 1 dew point"}, "Z1"); got != "Dew point" {
+		t.Fatalf("entity label (dew point) = %q", got)
 	}
-	// Exact-id override.
-	if got := b.friendlyName("GLOBAL_OUTPUT_3", "Output 3"); got != "Recirculation pump" {
-		t.Fatalf("exact override wrong: %q", got)
+	// HPC element device + label.
+	if got := b.deviceName("HPC"); got != "Heat pump controller" {
+		t.Fatalf("HPC device name = %q", got)
 	}
-	// HPC has no numeric prefix: only exact override applies, else default.
-	if got := b.friendlyName("HPC_PID_TEMP", "Heat pump controller PID temperature"); got != "Heat pump controller PID temperature" {
-		t.Fatalf("HPC should be untouched by Z1 override: %q", got)
+	if got := b.entityLabel("HPC_PID_TEMP", models.Attributes{Name: "Heat pump controller PID temperature"}, "HPC"); got != "PID temperature" {
+		t.Fatalf("HPC label = %q", got)
+	}
+	// Main-device entity keeps its full name; exact-id override wins.
+	if got := b.entityLabel("GLOBAL_OUTPUT_3", models.Attributes{Name: "Output 3"}, ""); got != "Recirculation pump" {
+		t.Fatalf("exact override = %q", got)
+	}
+	if got := b.entityLabel("ANY_ALARM", models.Attributes{Name: "Any alarm"}, ""); got != "Any alarm" {
+		t.Fatalf("main entity label = %q", got)
 	}
 
-	// The override must appear in the actual discovery payload.
+	// In the real payload: the zone device is named "Bagni" and the sensor
+	// label is "Temperature" (composed by HA as "Bagni Temperature").
 	params := models.ParamsMap{"Z1_TEMP": models.Attributes{EntityType: "sensor", Name: "Zone 1 temperature"}}
-	msg, _ := b.DeviceConfig(params, map[string]string{}, false)
-	if !strings.Contains(msg.Payload, "Bagni temperature") {
-		t.Fatal("override not applied in discovery payload")
+	dev := deviceOf(t, b, params, map[string]string{}, false, "Z1_TEMP")
+	if dev == nil || dev["name"] != "Bagni" {
+		t.Fatalf("zone device should be named Bagni, got %v", dev)
+	}
+	if allComponents(t, b, params, map[string]string{}, false)["Z1_TEMP"]["name"] != "Temperature" {
+		t.Fatal("zone sensor label should be 'Temperature'")
 	}
 }
 
@@ -264,19 +330,172 @@ func TestEntityCategoryRule(t *testing.T) {
 	// Primary measurements must NOT be diagnostic (stay in main view / usable
 	// in the Energy dashboard).
 	for _, dc := range []string{"temperature", "humidity", "power", "energy"} {
-		c := b.component("X", models.Attributes{EntityType: "sensor", DeviceClass: dc, Name: "x"})
+		c := b.component("X", models.Attributes{EntityType: "sensor", DeviceClass: dc, Name: "x"}, "x")
 		if _, ok := c["entity_category"]; ok {
 			t.Fatalf("%s sensor must not be diagnostic", dc)
 		}
 	}
 	// Raw code sensors (no device class) are diagnostic.
-	raw := b.component("HP0_POWER", models.Attributes{EntityType: "sensor", Name: "raw"})
+	raw := b.component("HP0_POWER", models.Attributes{EntityType: "sensor", Name: "raw"}, "raw")
 	if raw["entity_category"] != "diagnostic" {
 		t.Fatal("raw sensor must be diagnostic")
 	}
 	// Explicit override always wins.
-	ov := b.component("X", models.Attributes{EntityType: "sensor", DeviceClass: "temperature", EntityCategory: "diagnostic", Name: "x"})
+	ov := b.component("X", models.Attributes{EntityType: "sensor", DeviceClass: "temperature", EntityCategory: "diagnostic", Name: "x"}, "x")
 	if ov["entity_category"] != "diagnostic" {
 		t.Fatal("explicit entity_category must win")
+	}
+}
+
+func TestActiveZonesFilter(t *testing.T) {
+	b := New("SYS1", nil)
+	b.ActiveZones = map[int]bool{1: true, 2: true} // solo Z1 e Z2
+
+	params := models.ParamsMap{
+		"Z1_TEMP": models.Attributes{EntityType: "sensor", Name: "Zone 1 temperature"},
+		"Z7_TEMP": models.Attributes{EntityType: "sensor", Name: "Zone 7 temperature"},
+		"C1_TEMP": models.Attributes{EntityType: "sensor", Name: "Circuit 1 temperature"},
+	}
+	rm := map[string]string{
+		"Z1_SENSOR_CHN": "57088",
+		"Z7_SENSOR_CHN": "57088",
+	}
+	msgs, err := b.DeviceConfigs(params, rm, true)
+	if err != nil {
+		t.Fatal(err)
+	}
+	components := allComponents(t, b, params, rm, true)
+
+	// Z1 esposta come sensore completo, C1 (non-zona) intatta.
+	if components["Z1_TEMP"]["unique_id"] == nil {
+		t.Fatal("Z1_TEMP should be a full component")
+	}
+	if components["C1_TEMP"]["unique_id"] == nil {
+		t.Fatal("C1_TEMP (non-zone) should be unaffected")
+	}
+	if components["zone_1"] == nil {
+		t.Fatal("zone_1 climate should be present")
+	}
+	// Z7 e il suo termostato non compaiono in alcun device.
+	if _, ok := components["Z7_TEMP"]; ok {
+		t.Fatal("excluded Z7_TEMP must not be published")
+	}
+	if _, ok := components["zone_7"]; ok {
+		t.Fatal("excluded zone_7 climate must not be published")
+	}
+	// Il sotto-device della zona esclusa viene rimosso (payload vuoto).
+	removed := false
+	for _, m := range msgs {
+		if m.Topic == b.configTopicFor("SYS1_Z7") && m.Payload == "" && m.Retain {
+			removed = true
+		}
+	}
+	if !removed {
+		t.Fatal("excluded zone Z7 sub-device should be removed with an empty retained payload")
+	}
+
+	// Lo stato delle zone escluse non viene pubblicato.
+	resp := scraper.Response{Data: []scraper.Datum{
+		{ID: "Z1_TEMP", V: scraper.FlexString("258")},
+		{ID: "Z7_TEMP", V: scraper.FlexString("260")},
+	}}
+	for _, m := range b.StateMessages(resp, params) {
+		if m.Topic == b.StateTopic("Z7_TEMP") {
+			t.Fatal("excluded zone Z7 should not publish state")
+		}
+	}
+}
+
+func TestActiveZonesNilExposesAll(t *testing.T) {
+	b := New("SYS1", nil) // ActiveZones nil
+	if b.zoneExcluded(7) {
+		t.Fatal("with nil allowlist no zone should be excluded")
+	}
+	if zoneOf("Z7_TEMP") != 7 || zoneOf("C1_TEMP") != 0 {
+		t.Fatal("zoneOf parsing wrong")
+	}
+}
+
+func TestDiagnosticDisabledAndControls(t *testing.T) {
+	b := New("SYS1", nil)
+
+	// Diagnostic sensors are created but disabled by default.
+	raw := b.component("HP0_STATUS", models.Attributes{EntityType: "sensor", Name: "s"}, "s")
+	if raw["entity_category"] != "diagnostic" || raw["enabled_by_default"] != false {
+		t.Fatalf("diagnostic sensor must be disabled by default, got %v", raw)
+	}
+	// Primary measurements stay enabled.
+	temp := b.component("Z1_TEMP", models.Attributes{EntityType: "sensor", DeviceClass: "temperature", Name: "t"}, "t")
+	if _, ok := temp["enabled_by_default"]; ok {
+		t.Fatal("primary sensor must stay enabled")
+	}
+	// A "primary" control carries no entity_category (main control, not config).
+	sw := b.component("GLOBAL_ENABLE", models.Attributes{EntityType: "switch", EntityCategory: "primary", Name: "System"}, "System")
+	if _, ok := sw["entity_category"]; ok {
+		t.Fatal("primary control must not be config/diagnostic")
+	}
+	if sw["command_topic"] != "setecna/SYS1/GLOBAL_ENABLE/set" || sw["payload_on"] != "1" {
+		t.Fatalf("switch wiring wrong: %v", sw)
+	}
+
+	// When writable (readonly=false) the plant on/off and season become controls.
+	m := make(models.ParamsMap)
+	m.AddEnabledParams(map[string]string{"GLOBAL_SEASON": "0", "GLOBAL_ENABLE": "1"}, false)
+	if m["GLOBAL_ENABLE"].EntityType != "switch" {
+		t.Fatalf("system on/off should be a switch when writable, got %q", m["GLOBAL_ENABLE"].EntityType)
+	}
+	if m["GLOBAL_SEASON"].EntityType != "select" {
+		t.Fatalf("season should be a select when writable, got %q", m["GLOBAL_SEASON"].EntityType)
+	}
+	// When read-only they stay sensors.
+	ro := make(models.ParamsMap)
+	ro.AddEnabledParams(map[string]string{"GLOBAL_SEASON": "0", "GLOBAL_ENABLE": "1"}, true)
+	if ro["GLOBAL_ENABLE"].EntityType != "binary_sensor" || ro["GLOBAL_SEASON"].EntityType != "sensor" {
+		t.Fatalf("read-only globals should be sensors, got %q/%q", ro["GLOBAL_ENABLE"].EntityType, ro["GLOBAL_SEASON"].EntityType)
+	}
+}
+
+func TestGlobalWriteKeyPrefix(t *testing.T) {
+	b := New("SYS1", nil)
+	// Season select: state reads GLOBAL_SEASON, command writes P_GLOBAL_SEASON.
+	c := b.component("GLOBAL_SEASON", models.Attributes{
+		EntityType: "select", Options: []string{"winter", "summer"},
+		WriteKey: "P_GLOBAL_SEASON",
+	}, "Season")
+	if c["state_topic"] != "setecna/SYS1/GLOBAL_SEASON" {
+		t.Fatalf("season state topic wrong: %v", c["state_topic"])
+	}
+	if c["command_topic"] != "setecna/SYS1/P_GLOBAL_SEASON/set" {
+		t.Fatalf("season command topic must use P_ prefix: %v", c["command_topic"])
+	}
+	// Switch without WriteKey keeps the same read/write name.
+	sw := b.component("Z1_SOMEWRITE", models.Attributes{EntityType: "switch"}, "x")
+	if sw["command_topic"] != "setecna/SYS1/Z1_SOMEWRITE/set" {
+		t.Fatalf("non-global command topic should not gain a prefix: %v", sw["command_topic"])
+	}
+}
+
+func TestACSGroupedOnOwnDevice(t *testing.T) {
+	b := New("SYS1", nil)
+	// ACS params (both ACS_* and ACS-related globals) land on the ACS device.
+	for _, k := range []string{"ACS_SET_COMFORT", "GLOBAL_ACS_ENABLE", "GLOBAL_T_ACS", "GLOBAL_SET_ACS"} {
+		if got := elementOf(k); got != "ACS" {
+			t.Fatalf("%s should map to ACS device, got %q", k, got)
+		}
+	}
+	// A heat-pump ACS temperature stays on its heat-pump device, not ACS.
+	if got := elementOf("HP2_TACS"); got != "HP2" {
+		t.Fatalf("HP2_TACS should stay on HP2, got %q", got)
+	}
+	// Non-ACS globals stay on the main device.
+	if got := elementOf("GLOBAL_SEASON"); got != "" {
+		t.Fatalf("GLOBAL_SEASON should stay on main device, got %q", got)
+	}
+	// The ACS enable switch labels cleanly under the ACS device.
+	if got := b.entityLabel("GLOBAL_ACS_ENABLE", models.Attributes{Name: "ACS enable"}, "ACS"); got != "Enable" {
+		t.Fatalf("ACS enable label = %q", got)
+	}
+	if got := b.deviceName("ACS"); got != "ACS" {
+		t.Fatalf("ACS device name = %q", got)
 	}
 }

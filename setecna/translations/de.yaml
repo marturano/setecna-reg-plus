@@ -41,3 +41,11 @@ configuration:
       (Z1, C1, S1, HP0) oder eine exakte Parameter-ID
       (GLOBAL_OUTPUT_3=Zirkulationspumpe). Das Add-on-Protokoll listet Ihre
       Setecna-Bezeichnungen zum Kopieren auf.
+  active_zones:
+    name: Anzuzeigende Zonen
+    description: >-
+      Optionale Positivliste der anzuzeigenden Zonennummern (z. B. 1, 2, 3).
+      Zonen, die auf der Anlage erkannt, aber hier nicht aufgeführt werden -
+      samt allen Sensoren, Bedienelementen und Thermostat - werden ausgeblendet
+      und aus Home Assistant entfernt. Leer lassen, um alle erkannten Zonen
+      anzuzeigen.

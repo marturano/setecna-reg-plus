@@ -41,3 +41,10 @@ configuration:
       bain"...). Utilisez un préfixe de zone/circuit/source (Z1, C1, S1, HP0) ou
       un identifiant de paramètre exact (GLOBAL_OUTPUT_3=Pompe de recirculation).
       Le journal de l'add-on liste vos libellés Setecna à copier.
+  active_zones:
+    name: Zones à exposer
+    description: >-
+      Liste blanche facultative des numéros de zone à exposer (p. ex. 1, 2, 3).
+      Les zones détectées sur le panneau mais non listées ici - avec tous leurs
+      capteurs, commandes et thermostat - sont masquées et supprimées de Home
+      Assistant. Laisser vide pour exposer toutes les zones détectées.

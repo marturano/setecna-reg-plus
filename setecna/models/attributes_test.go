@@ -125,3 +125,18 @@ func TestEnergyMeterHighWord(t *testing.T) {
 		t.Fatal("EM4_ACC2HI (export high word) missing")
 	}
 }
+
+func TestRequiredPowerScale(t *testing.T) {
+	m := make(ParamsMap)
+	m.addHeatPumpController(snapshot(), true, true, false)
+	a, ok := m["HPC_REQUIREDPOWER"]
+	if !ok {
+		t.Fatal("HPC_REQUIREDPOWER missing")
+	}
+	if a.DeviceClass != "power" || a.UnitOfMeasurement != "kW" {
+		t.Fatalf("required power should be power/kW, got %+v", a)
+	}
+	if !strings.Contains(a.ValueTemplate, "/ 100") {
+		t.Fatalf("required power must scale by /100, got %q", a.ValueTemplate)
+	}
+}

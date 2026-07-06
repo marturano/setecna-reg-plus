@@ -41,3 +41,10 @@ configuration:
       C1, S1, HP0) o l'id esatto di un parametro (GLOBAL_OUTPUT_3=Pompa
       ricircolo). Il log dell'add-on elenca le etichette personalizzate del tuo
       sistema Setecna da copiare.
+  active_zones:
+    name: Zone da esporre
+    description: >-
+      Elenco facoltativo dei numeri di zona da esporre (es. 1, 2, 3). Le zone
+      rilevate sul pannello ma non elencate qui - con tutti i loro sensori,
+      controlli e termostato - vengono nascoste e rimosse da Home Assistant.
+      Lascia vuoto per esporre tutte le zone rilevate.

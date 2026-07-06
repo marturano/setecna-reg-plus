@@ -15,6 +15,11 @@ type Attributes struct {
 	Step              float64  `json:"step"`
 	UnitOfMeasurement string   `json:"unit_of_measurement"`
 	ValueTemplate     string   `json:"value_template"`
+	// WriteKey overrides the parameter name used when writing back to Setecna.
+	// The Setecna cloud reads global params as "GLOBAL_*" but only accepts
+	// writes to their "P_GLOBAL_*" counterpart; the state topic keeps the
+	// read name so unique_id and history are unaffected.
+	WriteKey string `json:"write_key"`
 }
 
 // Sentinel values used by the REG controller to signal "not available"
@@ -83,10 +88,22 @@ func (m ParamsMap) addLastUpdate(from map[string]string, static, read, write boo
 
 func (m ParamsMap) addGlobals(from map[string]string, static, read, write bool) {
 	if static {
-		m["GLOBAL_ENABLE"] = Attributes{
-			Name:          "Global state",
-			EntityType:    "binary_sensor",
-			ValueTemplate: "{% if value == \"1\" %}on{% else %}off{% endif %}",
+		if write {
+			// Writable master on/off for the whole plant. The cloud accepts
+			// writes only on P_GLOBAL_ENABLE (0 = off, 1 = on); state is read
+			// from GLOBAL_ENABLE.
+			m["GLOBAL_ENABLE"] = Attributes{
+				Name:           "System",
+				EntityType:     "switch",
+				EntityCategory: "primary",
+				WriteKey:       "P_GLOBAL_ENABLE",
+			}
+		} else {
+			m["GLOBAL_ENABLE"] = Attributes{
+				Name:          "Global state",
+				EntityType:    "binary_sensor",
+				ValueTemplate: "{% if value == \"1\" %}on{% else %}off{% endif %}",
+			}
 		}
 		m["GLOBAL_T_EXT"] = Attributes{
 			Name:              "Global external temperature",
@@ -96,12 +113,27 @@ func (m ParamsMap) addGlobals(from map[string]string, static, read, write bool) 
 			StateClass:        "measurement",
 			ValueTemplate:     "{{ value | int / 10 }}",
 		}
-		m["GLOBAL_SEASON"] = Attributes{
-			Name:          "Global season",
-			EntityType:    "sensor",
-			DeviceClass:   "enum",
-			ValueTemplate: "{% if value == \"0\" %}winter{% elif value == \"1\" %}summer{% else %}{{ value }}{% endif %}",
-			Options:       []string{"winter", "summer"},
+		if write {
+			// Writable season selector. The cloud accepts writes only on
+			// P_GLOBAL_SEASON (0 = winter, 1 = summer); state is read from
+			// GLOBAL_SEASON.
+			m["GLOBAL_SEASON"] = Attributes{
+				Name:            "Season",
+				EntityType:      "select",
+				EntityCategory:  "primary",
+				Options:         []string{"winter", "summer"},
+				ValueTemplate:   "{% if value == \"1\" %}summer{% else %}winter{% endif %}",
+				CommandTemplate: "{% if value == \"summer\" %}1{% else %}0{% endif %}",
+				WriteKey:        "P_GLOBAL_SEASON",
+			}
+		} else {
+			m["GLOBAL_SEASON"] = Attributes{
+				Name:          "Global season",
+				EntityType:    "sensor",
+				DeviceClass:   "enum",
+				ValueTemplate: "{% if value == \"0\" %}winter{% elif value == \"1\" %}summer{% else %}{{ value }}{% endif %}",
+				Options:       []string{"winter", "summer"},
+			}
 		}
 		m["GLOBAL_DEICING"] = Attributes{
 			Name:          "Global de-ice state",
@@ -186,17 +218,28 @@ func (m ParamsMap) addGlobals(from map[string]string, static, read, write bool) 
 func (m ParamsMap) addDomesticHotWater(from map[string]string, static, read, write bool) {
 	if static {
 		m["ACS_MAIN_OUTPUT"] = Attributes{
-			Name:          "DHW state",
+			Name:          "ACS state",
 			EntityType:    "binary_sensor",
 			ValueTemplate: "{% if value == \"1\" %}on{% else %}off{% endif %}",
 		}
-		m["GLOBAL_ACS_ENABLE"] = Attributes{
-			Name:          "DHW enabled",
-			EntityType:    "binary_sensor",
-			ValueTemplate: "{% if value == \"1\" %}on{% else %}off{% endif %}",
+		if write {
+			// Master on/off for domestic hot water. Global param: the cloud
+			// accepts writes only on P_GLOBAL_ACS_ENABLE (0 = off, 1 = on).
+			m["GLOBAL_ACS_ENABLE"] = Attributes{
+				Name:           "ACS enable",
+				EntityType:     "switch",
+				EntityCategory: "primary",
+				WriteKey:       "P_GLOBAL_ACS_ENABLE",
+			}
+		} else {
+			m["GLOBAL_ACS_ENABLE"] = Attributes{
+				Name:          "ACS enabled",
+				EntityType:    "binary_sensor",
+				ValueTemplate: "{% if value == \"1\" %}on{% else %}off{% endif %}",
+			}
 		}
 		m["GLOBAL_T_ACS"] = Attributes{
-			Name:              "DHW temperature",
+			Name:              "ACS temperature",
 			EntityType:        "sensor",
 			DeviceClass:       "temperature",
 			UnitOfMeasurement: "°C",
@@ -204,7 +247,7 @@ func (m ParamsMap) addDomesticHotWater(from map[string]string, static, read, wri
 			ValueTemplate:     "{{ value | int / 10 }}",
 		}
 		m["GLOBAL_SET_ACS"] = Attributes{
-			Name:              "DHW temperature setpoint",
+			Name:              "ACS active setpoint",
 			EntityType:        "sensor",
 			DeviceClass:       "temperature",
 			UnitOfMeasurement: "°C",
@@ -214,7 +257,7 @@ func (m ParamsMap) addDomesticHotWater(from map[string]string, static, read, wri
 	}
 	if read {
 		m["ACS_SET_ECONOMY"] = Attributes{
-			Name:              "DHW economy setpoint",
+			Name:              "ACS economy setpoint",
 			EntityType:        "sensor",
 			DeviceClass:       "temperature",
 			UnitOfMeasurement: "°C",
@@ -222,7 +265,7 @@ func (m ParamsMap) addDomesticHotWater(from map[string]string, static, read, wri
 			ValueTemplate:     "{{ value | int / 10 }}",
 		}
 		m["ACS_SET_COMFORT"] = Attributes{
-			Name:              "DHW comfort setpoint",
+			Name:              "ACS comfort setpoint",
 			EntityType:        "sensor",
 			DeviceClass:       "temperature",
 			UnitOfMeasurement: "°C",
@@ -230,7 +273,7 @@ func (m ParamsMap) addDomesticHotWater(from map[string]string, static, read, wri
 			ValueTemplate:     "{{ value | int / 10 }}",
 		}
 		m["ACS_SET_HYST"] = Attributes{
-			Name:              "DHW setpoint hysteresis",
+			Name:              "ACS setpoint hysteresis",
 			EntityType:        "sensor",
 			DeviceClass:       "temperature",
 			UnitOfMeasurement: "°C",
@@ -238,7 +281,7 @@ func (m ParamsMap) addDomesticHotWater(from map[string]string, static, read, wri
 			ValueTemplate:     "{{ value | int / 10 }}",
 		}
 		m["ACS_SET_DELTA"] = Attributes{
-			Name:              "DHW second stage deviation",
+			Name:              "ACS second stage deviation",
 			EntityType:        "sensor",
 			DeviceClass:       "temperature",
 			UnitOfMeasurement: "°C",
@@ -248,7 +291,7 @@ func (m ParamsMap) addDomesticHotWater(from map[string]string, static, read, wri
 	}
 	if write {
 		m["ACS_SET_ECONOMY"] = Attributes{
-			Name:              "DHW economy setpoint",
+			Name:              "ACS economy setpoint",
 			EntityType:        "number",
 			DeviceClass:       "temperature",
 			UnitOfMeasurement: "°C",
@@ -260,7 +303,7 @@ func (m ParamsMap) addDomesticHotWater(from map[string]string, static, read, wri
 			CommandTemplate:   "{{ (value * 10) | int }}",
 		}
 		m["ACS_SET_COMFORT"] = Attributes{
-			Name:              "DHW comfort setpoint",
+			Name:              "ACS comfort setpoint",
 			EntityType:        "number",
 			DeviceClass:       "temperature",
 			UnitOfMeasurement: "°C",
@@ -272,7 +315,7 @@ func (m ParamsMap) addDomesticHotWater(from map[string]string, static, read, wri
 			CommandTemplate:   "{{ (value * 10) | int }}",
 		}
 		m["ACS_SET_HYST"] = Attributes{
-			Name:              "DHW setpoint hysteresis",
+			Name:              "ACS setpoint hysteresis",
 			EntityType:        "number",
 			DeviceClass:       "temperature",
 			UnitOfMeasurement: "°C",
@@ -284,7 +327,7 @@ func (m ParamsMap) addDomesticHotWater(from map[string]string, static, read, wri
 			CommandTemplate:   "{{ (value * 10) | int }}",
 		}
 		m["ACS_SET_DELTA"] = Attributes{
-			Name:              "DHW second stage deviation",
+			Name:              "ACS second stage deviation",
 			EntityType:        "number",
 			DeviceClass:       "temperature",
 			UnitOfMeasurement: "°C",
@@ -384,13 +427,6 @@ func (m ParamsMap) addZones(from map[string]string, static, read, write bool) {
 				}
 			}
 			if read {
-				m["Z"+fmt.Sprint(i)+"_FORCING"] = Attributes{
-					Name:          "Zone " + fmt.Sprint(i) + " preset",
-					EntityType:    "sensor",
-					DeviceClass:   "enum",
-					ValueTemplate: "{% if value == \"0\" %}automatic{% elif value == \"1\" %}forced off{% elif value == \"2\" %}forced economy{% elif value == \"3\" %}forced comfort{% else %}{{ value }}{% endif %}",
-					Options:       []string{"automatic", "forced off", "forced economy", "forced comfort"},
-				}
 				m["Z"+fmt.Sprint(i)+"_SET_CW"] = Attributes{
 					Name:              "Zone " + fmt.Sprint(i) + " C.W. setpoint",
 					EntityType:        "sensor",
@@ -429,13 +465,6 @@ func (m ParamsMap) addZones(from map[string]string, static, read, write bool) {
 				}
 			}
 			if write {
-				m["Z"+fmt.Sprint(i)+"_FORCING"] = Attributes{
-					Name:            "Zone " + fmt.Sprint(i) + " preset",
-					Options:         []string{"automatic", "forced off", "forced economy", "forced comfort"},
-					EntityType:      "select",
-					ValueTemplate:   "{% if value == \"1\" %}forced off{% elif value == \"2\" %}forced economy{% elif value == \"3\" %}forced comfort{% else %}automatic{% endif %}",
-					CommandTemplate: "{% if value == \"forced off\" %}1{% elif value == \"forced economy\" %}2{% elif value == \"forced comfort\" %}3{% else %}0{% endif %}",
-				}
 				m["Z"+fmt.Sprint(i)+"_SET_CW"] = Attributes{
 					Name:              "Zone " + fmt.Sprint(i) + " C.W. setpoint",
 					EntityType:        "number",
@@ -881,7 +910,7 @@ func (m ParamsMap) addHeatPumps(from map[string]string, static, read, write bool
 		temp(p+"_TRIT", "return temperature", i)
 		temp(p+"_TEXT", "outside temperature", i)
 		temp(p+"_TMAND", "flow temperature", i)
-		temp(p+"_TACS", "DHW temperature", i)
+		temp(p+"_TACS", "ACS temperature", i)
 		// Raw fields: exact unit/encoding not yet reverse engineered.
 		raw(p+"_STATUS", "status code", i)
 		raw(p+"_POWER", "power (raw)", i)
@@ -923,11 +952,20 @@ func (m ParamsMap) addHeatPumpController(from map[string]string, static, read, w
 		}
 	}
 	measurement("HPC_NCALD_ACTIVE", "active stages")
-	measurement("HPC_REQUIREDPOWER", "required power (raw)")
+	// Required power: raw value is in hundredths of a kW (500 -> 5.00 kW),
+	// confirmed against 5 kW nominal heat-pump stages on a real system.
+	m["HPC_REQUIREDPOWER"] = Attributes{
+		Name:              "Heat pump controller required power",
+		EntityType:        "sensor",
+		DeviceClass:       "power",
+		UnitOfMeasurement: "kW",
+		StateClass:        "measurement",
+		ValueTemplate:     `{% set v = value | int %}{% if v not in [255, 32768, 32769, 65280, 65535] %}{{ v / 100 }}{% endif %}`,
+	}
 	measurement("HPC_PID_OUTPUT", "PID output (raw)")
 	measurement("HPC_GRACETIMER", "grace timer (raw)")
 	raw("HPC_REQUEST_R", "heating request (raw)")
-	raw("HPC_REQUEST_ACS", "DHW request (raw)")
+	raw("HPC_REQUEST_ACS", "ACS request (raw)")
 	raw("HPC_FLAGS", "flags (raw)")
 	raw("HPC_PID_THERMOSTAT", "PID thermostat (raw)")
 }
@@ -966,7 +1004,7 @@ func (m ParamsMap) addOpenTherm(from map[string]string, static, read, write bool
 			continue
 		}
 		temp(p+"_TMAND", "flow temperature", i)
-		temp(p+"_TACS", "DHW temperature", i)
+		temp(p+"_TACS", "ACS temperature", i)
 		temp(p+"_TRIT", "return temperature", i)
 		raw(p+"_STATUS", "status code", i)
 		raw(p+"_POWER", "power (raw)", i)

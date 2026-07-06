@@ -1,6 +1,6 @@
 # https://developers.home-assistant.io/docs/add-ons/configuration#add-on-config
 name: Setecna REG PLUS
-version: "1.0.0"
+version: "1.0.1"
 slug: setecna_reg_plus
 description: Setecna REG PLUS - web integration for Setecna REG thermal systems (MQTT device-based discovery)
 url: "https://github.com/marturano/setecna-reg-plus"
@@ -22,6 +22,7 @@ options:
   cleanup_legacy: true
   poll_interval: 30
   entity_names: []
+  active_zones: []
 schema:
   systemID: "str"
   username: "str"
@@ -32,6 +33,8 @@ schema:
   poll_interval: "int(10,600)"
   entity_names:
     - "str"
+  active_zones:
+    - "int(1,32)"
   mqtt_host: "str?"
   mqtt_port: "port?"
   mqtt_username: "str?"

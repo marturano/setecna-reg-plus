@@ -20,9 +20,10 @@ This repository contains the Home Assistant add-on that integrates a **Setecna R
 
 ## Features
 
-- **Single MQTT device** exposing all diagnostic and configuration entities of your Setecna system (requires Home Assistant **2024.11+**, verified up to **2026.7**).
-- **Native climate entities** (optional *Advanced integration* mode) for each active zone, with heating/cooling `hvac_action`, seasonal economy/comfort setpoints and, where available, humidity control.
-- **Extra device families** exposed as read-only diagnostics: heat-pump units and cascade controller, OpenTherm generator cascade (when enabled), board relay outputs, system alarms, zone dew point, circuit return temperatures and pumps, source temperatures, and energy-meter 32-bit totals. Unavailable channels stay *unknown* instead of showing garbage values.
+- **One Home Assistant device per element** (main *Setecna REG* device plus one per zone, circuit, source, heat pump and ACS), so entities are grouped and a whole zone can be renamed from its device page (requires Home Assistant **2024.11+**, verified up to **2026.7**).
+- **Master controls** (when writable): plant **on/off**, **season** (winter/summer) and **ACS on/off**.
+- **Native climate entities** (optional *Advanced integration* mode) for each active zone, with heating/cooling `hvac_action`, a single target temperature (the season's comfort setpoint), translated presets (`eco`/`comfort`) and, where available, humidity control.
+- **Extra device families** exposed as read-only diagnostics (disabled by default to keep pages clean): heat-pump units and cascade controller, OpenTherm generator cascade (when enabled), board relay outputs, system alarms, zone dew point, circuit return temperatures and pumps, source temperatures, and energy-meter 32-bit totals. Unavailable channels stay *unknown* instead of showing garbage values.
 - **Entity renaming from the add-on settings**: name a zone once and all its entities follow.
 - **Availability tracking** via MQTT Last Will: entities go `unavailable` if the add-on stops.
 - **Self-healing**: automatic re-login when the Setecna session expires, MQTT auto-reconnect with backoff, discovery re-published when Home Assistant restarts, climate entities rebuilt automatically on winter/summer switch.
@@ -51,6 +52,7 @@ This repository contains the Home Assistant add-on that integrates a **Setecna R
 | `mqtt_username` | no | Custom broker username (empty = anonymous) |
 | `mqtt_password` | no | Custom broker password |
 | `entity_names` | no | Friendly-name overrides, one `PREFIX=Name` per entry (see below) |
+| `active_zones` | no | Zone numbers to expose; empty = all detected zones |
 
 ### Renaming entities
 

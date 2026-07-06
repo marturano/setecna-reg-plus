@@ -1,15 +1,33 @@
 <!-- https://developers.home-assistant.io/docs/add-ons/presentation#keeping-a-changelog -->
 
+## 1.0.1
+
+Maintenance release with thermostat, controls and layout fixes on top of 1.0.0.
+
+### Fixed
+- **Thermostat presets are now translated**: zone climate presets use Home Assistant's standard constants (`eco`, `comfort`, `none`) instead of custom English strings, so the frontend shows them in the user's language. The redundant, untranslatable "Zone N preset" select was removed - the thermostat's mode + preset already cover it.
+- **Thermostat uses a single target temperature** (the comfort setpoint of the active season) instead of a low/high range. A range in a single (cool/heat) mode made Amazon Alexa (via Nabu Casa) hang on load and hide the temperature; a single setpoint fixes it. The economy setpoint stays adjustable via its own number entity.
+- **System / Season / ACS on-off controls now actually write**: the Setecna cloud accepts writes to global parameters only on their `P_GLOBAL_*` name (while reading them as `GLOBAL_*`). These controls now write to `P_GLOBAL_ENABLE` / `P_GLOBAL_SEASON` / `P_GLOBAL_ACS_ENABLE`; state, unique_id and history are unchanged.
+
+### Changed
+- **ACS on its own device**: domestic-hot-water entities were renamed from "DHW" to "ACS" and moved to a dedicated `ACS` device, instead of being mixed with the global/system entities. Together with the per-zone/circuit/source/heat-pump devices this gives a clean split: *Setecna REG* (globals + system), *ACS*, and one device per element.
+- **Heat-pump controller "required power"** is now reported in **kW** (device_class power), scaled from the raw hundredths-of-a-kW register (confirmed against 5 kW nominal stages).
+
 ## 1.0.0
 
 First release of **Setecna REG PLUS**, an independent, ground-up rewrite (in Go) of the original `homeassistant-addon-setecna` by ingordigia. If you are migrating from that add-on, see *Migrating from the original add-on* in the documentation — entity `unique_id`s are preserved, so history and dashboards carry over.
 
 ### Added
+- **Diagnostic entities are now disabled by default**: the raw/status/code sensors and alarm binary-sensors are still created but hidden, so the device pages stay clean. Enable any you want from the entity's settings. Primary measurements (temperatures, humidity, power, energy) stay enabled.
+- **Master on/off control**: when the add-on is writable (readonly off), the plant on/off (`GLOBAL_ENABLE`) is exposed as a `switch` main control.
+- **Season control**: the summer/winter selector (`GLOBAL_SEASON`) is exposed as a writable `select` (winter/summer) main control.
+- **One Home Assistant device per element**: each active zone, circuit, source and heat pump is now its own device (linked to the main "Setecna REG" device), instead of a single device holding every entity. Entities are named by their measurement ("Temperature", "Dew point", ...) so Home Assistant composes "<device> <label>". This makes renaming native: rename the zone device (e.g. "Soggiorno") from its settings and every entity and the thermostat follow. Entity `unique_id`s are unchanged, so history and dashboards are preserved.
+- **Zone allowlist** (`active_zones` option): expose only the zone numbers you actually use; zones detected on the panel but not listed - and all their sensors, controls and thermostat - are hidden and cleanly removed from Home Assistant.
 - **Localisation**: the add-on configuration UI is now available in English, Italian, German, French and Spanish. The repository README is provided in the same five languages, with a language selector.
 - **Entity renaming from the add-on settings** (`entity_names` option): rename entities with `PREFIX=Name` entries. A zone/circuit/source prefix (`Z1`, `C1`, `S1`, `HP0`) renames every entity of that element at once — e.g. `Z1=Bagni` turns "Zone 1 temperature" into "Bagni temperature" and the zone-1 thermostat into "Bagni" — while an exact parameter id (`GLOBAL_OUTPUT_3=Recirculation pump`) renames a single entity. On startup the add-on logs the custom labels stored in the Setecna system (`_FREEDESC`/`_XFREEDESC`) and each active zone's description code, to help fill in the mapping.
 - **New device families exposed as read-only diagnostic entities** (discovered from a full parameter dump):
   - Heat-pump units `HP0..HP4` (present ones auto-detected via return temperature): return/flow/outside/DHW temperatures plus raw status, power, request and error codes.
-  - Heat-pump cascade controller `HPC` (PID temperature, active stages, required power, PID output, grace timer, requests, flags).
+  - Heat-pump cascade controller `HPC`: PID temperature (°C), active stages (count) and required power (kW, scaled from hundredths of a kW). Remaining fields (PID output, grace timer, requests, status/error codes, flags) are exposed as raw diagnostics since their scale/encoding is not documented.
   - OpenTherm generator cascade `OT_G0..OT_G8` (flow/DHW/return temperatures, status, power, error codes), created only when the OpenTherm subsystem and the individual generator are enabled.
   - Board relay outputs `GLOBAL_OUTPUT_0..15` as binary sensors.
   - System alarms: `ANY_ALARM` as a problem binary sensor plus the individual alarm words.

@@ -20,8 +20,9 @@ Este repositorio contiene el add-on de Home Assistant que integra un sistema té
 
 ## Características
 
-- **Un único dispositivo MQTT** que expone todas las entidades de diagnóstico y configuración de su sistema Setecna (requiere Home Assistant **2024.11+**, verificado hasta **2026.7**).
-- **Entidades climate nativas** (modo *Integración avanzada* opcional) para cada zona activa, con `hvac_action` de calefacción/refrigeración, consignas economía/confort estacionales y, cuando esté disponible, control de humedad.
+- **Un dispositivo de Home Assistant por elemento** (dispositivo principal *Setecna REG* más uno por cada zona, circuito, fuente, bomba de calor y ACS): las entidades quedan agrupadas y puede renombrar una zona entera desde su página de dispositivo (requiere Home Assistant **2024.11+**, verificado hasta **2026.7**).
+- **Controles principales** (cuando es escribible): **encendido/apagado** de la instalación, **temporada** (invierno/verano) y **encendido/apagado ACS**.
+- **Entidades climate nativas** (modo *Integración avanzada* opcional) para cada zona activa, con `hvac_action` de calefacción/refrigeración, una única temperatura objetivo (la consigna confort de la temporada), presets traducidos (`eco`/`comfort`) y, cuando esté disponible, control de humedad.
 - **Familias de dispositivos adicionales** expuestas como diagnóstico de solo lectura: unidades de bomba de calor y controlador de cascada, cascada de generadores OpenTherm (cuando está habilitada), salidas de relé de la placa, alarmas del sistema, punto de rocío de zona, temperaturas de retorno y bombas de los circuitos, temperaturas de las fuentes y totales de energía de 32 bits. Los canales no disponibles permanecen como *desconocido* en lugar de mostrar valores erróneos.
 - **Renombrado de entidades desde los ajustes del add-on**: nombre una zona una vez y todas sus entidades lo heredan.
 - **Seguimiento de disponibilidad** mediante MQTT Last Will: las entidades pasan a `unavailable` si el add-on se detiene.
@@ -51,6 +52,7 @@ Este repositorio contiene el add-on de Home Assistant que integra un sistema té
 | `mqtt_username` | no | Usuario del broker personalizado (vacío = anónimo) |
 | `mqtt_password` | no | Contraseña del broker personalizado |
 | `entity_names` | no | Renombrado de entidades, una entrada `PREFIJO=Nombre` (ver abajo) |
+| `active_zones` | no | Números de zona a exponer; vacío = todas las zonas detectadas |
 
 ### Renombrado de entidades
 

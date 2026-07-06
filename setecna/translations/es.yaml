@@ -41,3 +41,10 @@ configuration:
       zona/circuito/fuente (Z1, C1, S1, HP0) o un id de parámetro exacto
       (GLOBAL_OUTPUT_3=Bomba de recirculación). El registro del add-on lista sus
       etiquetas de Setecna para copiarlas.
+  active_zones:
+    name: Zonas a exponer
+    description: >-
+      Lista de permitidos opcional de los números de zona a exponer (p. ej. 1,
+      2, 3). Las zonas detectadas en el panel pero no listadas aquí - con todos
+      sus sensores, controles y termostato - se ocultan y se eliminan de Home
+      Assistant. Déjelo vacío para exponer todas las zonas detectadas.

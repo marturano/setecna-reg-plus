@@ -38,6 +38,23 @@ type appConfig struct {
 	cleanupLegacy bool
 	pollInterval  time.Duration
 	names         map[string]string
+	activeZones   map[int]bool
+}
+
+// parseActiveZones parses the ACTIVE_ZONES env var (zone numbers separated by
+// commas, spaces or newlines). Returns nil when empty, meaning "all zones".
+func parseActiveZones(raw string) map[int]bool {
+	sep := func(r rune) bool { return r == ',' || r == '\n' || r == ' ' || r == '\t' || r == ';' }
+	m := map[int]bool{}
+	for _, tok := range strings.FieldsFunc(raw, sep) {
+		if n, err := strconv.Atoi(strings.TrimSpace(tok)); err == nil && n >= 1 && n <= 32 {
+			m[n] = true
+		}
+	}
+	if len(m) == 0 {
+		return nil
+	}
+	return m
 }
 
 // parseNames parses the ENTITY_NAMES env var: one "PREFIX=Name" (or
@@ -89,6 +106,7 @@ func loadConfig() (appConfig, error) {
 	}
 	cfg.pollInterval = time.Duration(seconds) * time.Second
 	cfg.names = parseNames(os.Getenv("ENTITY_NAMES"))
+	cfg.activeZones = parseActiveZones(os.Getenv("ACTIVE_ZONES"))
 	return cfg, nil
 }
 
@@ -130,6 +148,7 @@ func main() {
 
 func run(ctx context.Context, cfg appConfig) error {
 	bridge := discovery.New(cfg.systemID, cfg.names)
+	bridge.ActiveZones = cfg.activeZones
 
 	// --- Setecna cloud ---------------------------------------------------
 	s, err := scraper.New(cfg.systemID)
@@ -177,7 +196,7 @@ func run(ctx context.Context, cfg appConfig) error {
 		if cfg.cleanupLegacy {
 			legacy = bridge.LegacyCleanupMessages(params)
 		}
-		configMsg, err := bridge.DeviceConfig(params, responseMap, advClimate)
+		configMsgs, err := bridge.DeviceConfigs(params, responseMap, advClimate)
 		stateMsgs := bridge.StateMessages(snapshot, params)
 		upMsg := bridge.UpdateStateMessage(latestRelease, latestReleaseURL)
 		stateMu.Unlock()
@@ -189,13 +208,10 @@ func run(ctx context.Context, cfg appConfig) error {
 		if legacy != nil {
 			c.BatchPublish(legacy)
 		}
-		if err := c.Publish(configMsg); err != nil {
-			slog.Error("publishing discovery payload", "error", err)
-			return
-		}
+		c.BatchPublish(configMsgs)
 		c.BatchPublish(stateMsgs)
 		c.Publish(upMsg)
-		slog.Info("discovery and state published", "entities", len(params))
+		slog.Info("discovery and state published", "entities", len(params), "devices", len(configMsgs))
 	}
 
 	// --- MQTT ------------------------------------------------------------
@@ -380,9 +396,10 @@ func commandHandler(s *scraper.Scraper, bridge *discovery.Bridge, c *mqtt.Client
 		}
 		// Optimistically echo the new value on the state topic so Home
 		// Assistant reflects it immediately, without waiting for the next
-		// poll cycle. The value is authoritative-confirmed on the next fetch.
+		// poll cycle. Writes to global params use the "P_" prefix, but their
+		// state is published under the unprefixed name, so strip it here.
 		if err := c.Publish(mqtt.Message{
-			Topic:   bridge.StateTopic(param),
+			Topic:   bridge.StateTopic(strings.TrimPrefix(param, "P_")),
 			Payload: value,
 			Qos:     0,
 			Retain:  true,
