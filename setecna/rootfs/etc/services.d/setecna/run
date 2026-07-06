@@ -1,0 +1,52 @@
+#!/usr/bin/with-contenv bashio
+# ==============================================================================
+# Start the Setecna bridge service
+# ==============================================================================
+
+bashio::log.info "Starting Setecna REG add-on..."
+
+# --- MQTT broker: custom settings take precedence over the Supervisor service
+if bashio::config.has_value 'mqtt_host'; then
+    bashio::log.info "Using custom MQTT broker from add-on configuration"
+    export MQTT_HOST="$(bashio::config 'mqtt_host')"
+    if bashio::config.has_value 'mqtt_port'; then
+        export MQTT_PORT="$(bashio::config 'mqtt_port')"
+    else
+        export MQTT_PORT="1883"
+    fi
+    if bashio::config.has_value 'mqtt_username'; then
+        export MQTT_USER="$(bashio::config 'mqtt_username')"
+    fi
+    if bashio::config.has_value 'mqtt_password'; then
+        export MQTT_PASSWORD="$(bashio::config 'mqtt_password')"
+    fi
+elif bashio::services.available "mqtt"; then
+    bashio::log.info "Using the MQTT broker provided by the Supervisor (Mosquitto add-on)"
+    export MQTT_HOST="$(bashio::services mqtt 'host')"
+    export MQTT_PORT="$(bashio::services mqtt 'port')"
+    export MQTT_USER="$(bashio::services mqtt 'username')"
+    export MQTT_PASSWORD="$(bashio::services mqtt 'password')"
+else
+    bashio::log.fatal "No MQTT broker available."
+    bashio::log.fatal "Install and start the Mosquitto broker add-on, or set a custom"
+    bashio::log.fatal "broker with the mqtt_host/mqtt_port/mqtt_username/mqtt_password options."
+    bashio::exit.nok
+fi
+
+export REG_SYSTEM_ID="$(bashio::config 'systemID')"
+export REG_USER="$(bashio::config 'username')"
+export REG_PASSWORD="$(bashio::config 'password')"
+export ADV_INT="$(bashio::config 'adv_int')"
+export READONLY="$(bashio::config 'readonly')"
+export CLEANUP_LEGACY="$(bashio::config 'cleanup_legacy')"
+export POLL_INTERVAL="$(bashio::config 'poll_interval')"
+
+# Friendly-name overrides: one "PREFIX=Name" per array element, joined with
+# newlines into a single env var parsed by the add-on.
+if bashio::config.has_value 'entity_names'; then
+    export ENTITY_NAMES="$(bashio::config 'entity_names[]')"
+fi
+
+bashio::log.info "System ID: ${REG_SYSTEM_ID} - MQTT broker: ${MQTT_HOST}:${MQTT_PORT}"
+
+exec /usr/bin/app

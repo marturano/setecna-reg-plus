@@ -1,0 +1,43 @@
+configuration:
+  systemID:
+    name: ID du système
+    description: L'identifiant de votre système Setecna REG tel qu'affiché dans l'interface web s5a.eu.
+  username:
+    name: Nom d'utilisateur
+    description: L'adresse e-mail de votre compte s5a.eu.
+  password:
+    name: Mot de passe
+    description: Le mot de passe de votre compte s5a.eu.
+  readonly:
+    name: Mode lecture seule
+    description: N'exposer que les capteurs, ne jamais rien réécrire vers le système Setecna.
+  adv_int:
+    name: Intégration avancée
+    description: Créer des entités climate natives de Home Assistant pour chaque zone active (nécessite le mode lecture seule désactivé).
+  cleanup_legacy:
+    name: Nettoyer les entités v1.x
+    description: Au démarrage, supprimer les topics de découverte MQTT par entité créés par les versions 1.x de l'add-on.
+  poll_interval:
+    name: Intervalle d'interrogation
+    description: Secondes entre les rafraîchissements de données depuis le cloud Setecna (10-600).
+  mqtt_host:
+    name: Hôte du broker MQTT (facultatif)
+    description: Nom d'hôte ou IP d'un broker MQTT personnalisé. Laisser vide pour détecter automatiquement l'add-on Mosquitto.
+  mqtt_port:
+    name: Port du broker MQTT (facultatif)
+    description: Port du broker MQTT personnalisé (par défaut 1883). Utilisé uniquement si un hôte personnalisé est défini.
+  mqtt_username:
+    name: Nom d'utilisateur MQTT (facultatif)
+    description: Nom d'utilisateur du broker MQTT personnalisé. Laisser vide pour un accès anonyme.
+  mqtt_password:
+    name: Mot de passe MQTT (facultatif)
+    description: Mot de passe du broker MQTT personnalisé.
+  entity_names:
+    name: Renommage des entités
+    description: >-
+      Renommez les entités avec une entrée "PRÉFIXE=Nom" par ligne, p. ex.
+      "Z1=Salles de bain" renomme toutes les entités de la zone 1 (Salles de
+      bain température, Salles de bain point de rosée, le thermostat "Salles de
+      bain"...). Utilisez un préfixe de zone/circuit/source (Z1, C1, S1, HP0) ou
+      un identifiant de paramètre exact (GLOBAL_OUTPUT_3=Pompe de recirculation).
+      Le journal de l'add-on liste vos libellés Setecna à copier.

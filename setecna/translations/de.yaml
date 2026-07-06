@@ -1,0 +1,43 @@
+configuration:
+  systemID:
+    name: System-ID
+    description: Die ID Ihres Setecna-REG-Systems, wie sie in der s5a.eu-Weboberfläche angezeigt wird.
+  username:
+    name: Benutzername
+    description: Die E-Mail-Adresse Ihres s5a.eu-Kontos.
+  password:
+    name: Passwort
+    description: Das Passwort Ihres s5a.eu-Kontos.
+  readonly:
+    name: Nur-Lese-Modus
+    description: Nur Sensoren bereitstellen, niemals etwas an das Setecna-System zurückschreiben.
+  adv_int:
+    name: Erweiterte Integration
+    description: Native Home-Assistant-Klimaentitäten für jede aktive Zone erstellen (erfordert deaktivierten Nur-Lese-Modus).
+  cleanup_legacy:
+    name: v1.x-Entitäten bereinigen
+    description: Beim Start die per-Entität-MQTT-Discovery-Topics der Add-on-Versionen 1.x entfernen.
+  poll_interval:
+    name: Abfrageintervall
+    description: Sekunden zwischen den Datenaktualisierungen aus der Setecna-Cloud (10-600).
+  mqtt_host:
+    name: MQTT-Broker-Host (optional)
+    description: Hostname oder IP eines eigenen MQTT-Brokers. Leer lassen, um das Mosquitto-Broker-Add-on automatisch zu erkennen.
+  mqtt_port:
+    name: MQTT-Broker-Port (optional)
+    description: Port des eigenen MQTT-Brokers (Standard 1883). Wird nur verwendet, wenn ein eigener Host gesetzt ist.
+  mqtt_username:
+    name: MQTT-Benutzername (optional)
+    description: Benutzername für den eigenen MQTT-Broker. Für anonymen Zugriff leer lassen.
+  mqtt_password:
+    name: MQTT-Passwort (optional)
+    description: Passwort für den eigenen MQTT-Broker.
+  entity_names:
+    name: Entitätsnamen überschreiben
+    description: >-
+      Entitäten umbenennen mit je einem Eintrag "PRÄFIX=Name", z. B. "Z1=Bäder"
+      benennt alle Entitäten der Zone 1 um (Bäder Temperatur, Bäder Taupunkt,
+      das Thermostat "Bäder"...). Verwenden Sie ein Zonen-/Kreis-/Quellen-Präfix
+      (Z1, C1, S1, HP0) oder eine exakte Parameter-ID
+      (GLOBAL_OUTPUT_3=Zirkulationspumpe). Das Add-on-Protokoll listet Ihre
+      Setecna-Bezeichnungen zum Kopieren auf.

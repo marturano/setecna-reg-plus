@@ -1,0 +1,12 @@
+version: 2
+updates:
+  - package-ecosystem: "github-actions"
+    directory: "/"
+    schedule:
+      interval: weekly
+      time: "06:00"
+  - package-ecosystem: "gomod"
+    directory: "/setecna"
+    schedule:
+      interval: weekly
+      time: "06:00"

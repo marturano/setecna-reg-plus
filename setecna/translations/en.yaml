@@ -1,0 +1,42 @@
+configuration:
+  systemID:
+    name: System ID
+    description: The ID of your Setecna REG system as shown in the s5a.eu web interface.
+  username:
+    name: Username
+    description: Your s5a.eu account email.
+  password:
+    name: Password
+    description: Your s5a.eu account password.
+  readonly:
+    name: Read-only mode
+    description: Only expose sensors, never write anything back to the Setecna system.
+  adv_int:
+    name: Advanced integration
+    description: Create native Home Assistant climate entities for each active zone (requires read-only mode disabled).
+  cleanup_legacy:
+    name: Clean up v1.x entities
+    description: On startup, remove the per-entity MQTT discovery topics created by add-on versions 1.x.
+  poll_interval:
+    name: Poll interval
+    description: Seconds between data refreshes from the Setecna cloud (10-600).
+  mqtt_host:
+    name: MQTT broker host (optional)
+    description: Hostname or IP of a custom MQTT broker. Leave empty to auto-discover the Mosquitto broker add-on.
+  mqtt_port:
+    name: MQTT broker port (optional)
+    description: Port of the custom MQTT broker (default 1883). Only used when a custom host is set.
+  mqtt_username:
+    name: MQTT username (optional)
+    description: Username for the custom MQTT broker. Leave empty for anonymous access.
+  mqtt_password:
+    name: MQTT password (optional)
+    description: Password for the custom MQTT broker.
+  entity_names:
+    name: Entity name overrides
+    description: >-
+      Rename entities with one "PREFIX=Name" per line, e.g. "Z1=Bagni" renames
+      every zone-1 entity (Bagni temperature, Bagni dew point, the Bagni
+      thermostat...). Use a zone/circuit/source prefix (Z1, C1, S1, HP0) or an
+      exact parameter id (GLOBAL_OUTPUT_3=Recirculation pump). The add-on log
+      lists your Setecna custom labels to copy from.

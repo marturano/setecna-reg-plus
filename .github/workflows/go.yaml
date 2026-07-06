@@ -1,0 +1,53 @@
+name: Go CI
+
+on:
+  push:
+    branches:
+      - main
+    paths:
+      - "setecna/**"
+      - ".github/workflows/go.yaml"
+  pull_request:
+    branches:
+      - main
+    paths:
+      - "setecna/**"
+      - ".github/workflows/go.yaml"
+
+jobs:
+  build-test:
+    name: Build, vet and test
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: setecna
+    steps:
+      - name: ⤵️ Check out code from GitHub
+        uses: actions/checkout@v7.0.0
+
+      - name: 🐹 Set up Go
+        uses: actions/setup-go@v5
+        with:
+          go-version-file: setecna/go.mod
+          cache-dependency-path: setecna/go.sum
+
+      - name: 📦 Download dependencies
+        run: go mod download
+
+      - name: 🔎 Verify formatting
+        run: |
+          unformatted="$(gofmt -l .)"
+          if [ -n "$unformatted" ]; then
+            echo "These files are not gofmt-formatted:"
+            echo "$unformatted"
+            exit 1
+          fi
+
+      - name: 🧹 go vet
+        run: go vet ./...
+
+      - name: 🏗️ Build
+        run: go build -trimpath -ldflags="-s -w" ./...
+
+      - name: 🧪 Test
+        run: go test -race -count=1 ./...
