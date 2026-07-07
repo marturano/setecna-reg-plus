@@ -82,6 +82,12 @@ Zones not listed - together with all their sensors, controls and thermostat - ar
 
 With `readonly` off, the main **Setecna REG** device exposes two plant-level controls: a **System** switch (master on/off, `GLOBAL_ENABLE`) and a **Season** selector (winter/summer, `GLOBAL_SEASON`). Per-zone control (mode, comfort setpoint, preset) is on each zone thermostat, and the economy setpoint on the zone's number entity.
 
+The plant-level controls can be hidden individually to avoid accidental changes: **Show System control** (`system_control`), **Show Season control** (`season_control`) and **Show ACS control** (`acs_control`), all default on.
+
+## Dropdown labels language
+
+Home Assistant cannot translate the options of MQTT dropdown/enum entities. The **Dropdown labels language** option (`language`, default `en`) localizes those options - Season, zone forcing, calendar preset and calendar mode - into English, Italian, German, French or Spanish. Entity names themselves stay in English (Home Assistant prepends the device name anyway).
+
 ## Diagnostic entities
 
 Raw/status/code sensors and alarm binary-sensors are created **disabled by default** to keep the device pages uncluttered. To use one, open it and enable it from its settings. Primary measurements (temperature, humidity, power, energy) are enabled by default.

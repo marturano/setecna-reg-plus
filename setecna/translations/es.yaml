@@ -15,6 +15,22 @@ configuration:
     name: Exponer entidades de diagnóstico
     description: >-
       Si está activado, expone las entidades de diagnóstico (códigos en bruto, alarmas, salidas de placa, estado de bombas/controlador, ...) como entidades deshabilitadas que puede activar individualmente. Si está desactivado (predeterminado), no se crean.
+  language:
+    name: Idioma de las etiquetas desplegables
+    description: >-
+      Idioma usado para las opciones de las entidades desplegables/enum (temporada, forzado de zonas y calendarios, modo calendario). Home Assistant no puede traducirlas automáticamente. Los nombres de las entidades permanecen en inglés. Predeterminado: inglés.
+  system_control:
+    name: Mostrar control System
+    description: >-
+      Muestra el control maestro System de encendido/apagado (enciende o apaga toda la instalación). Desactívelo para ocultarlo y evitar conmutaciones accidentales (p. ej. desde asistentes de voz). Solo aplica si el modo de solo lectura está desactivado. Predeterminado: activado.
+  season_control:
+    name: Mostrar control Season
+    description: >-
+      Muestra el selector Season (invierno/verano). Desactive para ocultarlo y evitar cambios accidentales. Solo aplica si el modo de solo lectura está desactivado. Predeterminado: activado.
+  acs_control:
+    name: Mostrar control ACS
+    description: >-
+      Muestra el interruptor de activación ACS (agua caliente sanitaria). Desactive para ocultarlo y evitar conmutaciones accidentales. Solo aplica si el modo de solo lectura está desactivado. Predeterminado: activado.
   adv_int:
     name: Integración avanzada
     description: Crear entidades climate nativas de Home Assistant para cada zona activa (requiere el modo de solo lectura desactivado).
@@ -39,7 +55,7 @@ configuration:
   entity_names:
     name: Renombrar entidades
     description: >-
-      Renombre las entidades con una línea "PREFIJO=Nombre" por entrada. Un prefijo de zona renombra el dispositivo de esa zona y todas sus entidades, p. ej. "Z1=Baños" (el termostato y todos los sensores de la zona lo siguen). Un id de parámetro exacto renombra una sola entidad, p. ej. "GLOBAL_OUTPUT_3=Bomba de recirculación". Los prefijos e ids distinguen mayúsculas y minúsculas ("Z1", no "z1"). El registro del add-on lista las etiquetas de su sistema para copiar.
+      Renombre las entidades con una línea "PREFIJO=Nombre" por entrada. Un prefijo de zona renombra el dispositivo de esa zona y todas sus entidades, p. ej. "Z1=Baños" (el termostato y todos los sensores de la zona lo siguen). Un id de parámetro exacto renombra una sola entidad, p. ej. "GLOBAL_OUTPUT_3=Bomba de recirculación". Los prefijos e ids distinguen mayúsculas y minúsculas ("Z1", no "z1"). Un prefijo de calendario ("MT1", "MT2", ...) renombra juntos el preajuste y el modo de ese programa, p. ej. "MT3=Baños". El registro del add-on lista las etiquetas de su sistema para copiar.
   active_zones:
     name: Zonas a exponer
     description: >-

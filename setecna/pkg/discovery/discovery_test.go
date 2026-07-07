@@ -72,6 +72,9 @@ func deviceOf(t *testing.T, b *Bridge, params models.ParamsMap, rm map[string]st
 func TestDeviceConfig(t *testing.T) {
 	b := New("SYS1", nil)
 	b.Diagnostics = true
+	b.SystemControl = true
+	b.SeasonControl = true
+	b.ACSControl = true
 	params := make(models.ParamsMap)
 	params.AddEnabledParams(testResponseMap(), false)
 
@@ -552,5 +555,59 @@ func TestMergedSubdeviceCleanup(t *testing.T) {
 	// Zones and plain globals must NOT be cleaned up.
 	if got[b.configTopicFor("SYS1_Z1")] {
 		t.Fatal("zone Z1 must not be removed")
+	}
+}
+
+func TestCalendarPrefixRename(t *testing.T) {
+	b := New("SYS1", map[string]string{"MT3": "Bagni"})
+	// Both the calendar's mode and preset entities follow the MT prefix.
+	if got := b.entityLabel("MT3_MODE", models.Attributes{Name: "Calendar 3 mode"}, ""); got != "Bagni mode" {
+		t.Fatalf("MT3_MODE label = %q", got)
+	}
+	if got := b.entityLabel("MT3_FORCING", models.Attributes{Name: "Calendar 3 preset"}, ""); got != "Bagni preset" {
+		t.Fatalf("MT3_FORCING label = %q", got)
+	}
+	// An unrelated calendar is untouched.
+	if got := b.entityLabel("MT1_MODE", models.Attributes{Name: "Calendar 1 mode"}, ""); got != "Calendar 1 mode" {
+		t.Fatalf("MT1_MODE label = %q", got)
+	}
+	// An exact-id override still wins over the prefix.
+	b2 := New("SYS1", map[string]string{"MT3": "Bagni", "MT3_MODE": "Bagni programma"})
+	if got := b2.entityLabel("MT3_MODE", models.Attributes{Name: "Calendar 3 mode"}, ""); got != "Bagni programma" {
+		t.Fatalf("exact override should win, got %q", got)
+	}
+}
+
+func TestSystemControlToggle(t *testing.T) {
+	params := models.ParamsMap{
+		"GLOBAL_ENABLE":     models.Attributes{EntityType: "switch", Name: "System", EntityCategory: "primary", WriteKey: "P_GLOBAL_ENABLE"},
+		"GLOBAL_SEASON":     models.Attributes{EntityType: "select", Name: "Season", EntityCategory: "primary", Options: []string{"winter", "summer"}, WriteKey: "P_GLOBAL_SEASON"},
+		"GLOBAL_ACS_ENABLE": models.Attributes{EntityType: "switch", Name: "ACS enable", EntityCategory: "primary", WriteKey: "P_GLOBAL_ACS_ENABLE"},
+		"GLOBAL_T_EXT":      models.Attributes{EntityType: "sensor", DeviceClass: "temperature", Name: "Global external temperature"},
+	}
+	rm := map[string]string{}
+
+	// All controls hidden (bare bridge: all *Control fields false).
+	off := New("SYS1", nil)
+	off.Diagnostics = true
+	c := allComponents(t, off, params, rm, false)
+	for _, k := range []string{"GLOBAL_ENABLE", "GLOBAL_SEASON", "GLOBAL_ACS_ENABLE"} {
+		if _, ok := c[k]["unique_id"]; ok {
+			t.Fatalf("%s must be removed when hidden", k)
+		}
+	}
+	if c["GLOBAL_T_EXT"]["unique_id"] == nil {
+		t.Fatal("other entities must stay")
+	}
+
+	// All controls shown.
+	on := New("SYS1", nil)
+	on.Diagnostics = true
+	on.SystemControl, on.SeasonControl, on.ACSControl = true, true, true
+	c = allComponents(t, on, params, rm, false)
+	for _, k := range []string{"GLOBAL_ENABLE", "GLOBAL_SEASON", "GLOBAL_ACS_ENABLE"} {
+		if c[k]["unique_id"] == nil {
+			t.Fatalf("%s must be present when shown", k)
+		}
 	}
 }

@@ -15,6 +15,22 @@ configuration:
     name: Diagnoseentitäten anzeigen
     description: >-
       Wenn aktiviert, werden die Diagnoseentitäten (Rohcodes, Alarme, Platinenausgänge, Wärmepumpen-/Reglerstatus, ...) als deaktivierte Entitäten bereitgestellt, die einzeln aktiviert werden können. Wenn aus (Standard), werden sie nicht erstellt.
+  language:
+    name: Sprache der Dropdown-Bezeichnungen
+    description: >-
+      Sprache für die Optionen der Dropdown-/Enum-Entitäten (Saison, Zonen- und Kalenderzwang, Kalendermodus). Home Assistant kann diese nicht automatisch übersetzen. Entitätsnamen bleiben auf Englisch. Standard: Englisch.
+  system_control:
+    name: System-Steuerung anzeigen
+    description: >-
+      Zeigt die Master-Ein/Aus-Steuerung System an (schaltet die gesamte Anlage ein/aus). Deaktivieren, um sie auszublenden und versehentliches Schalten zu verhindern (z. B. durch Sprachassistenten). Nur wirksam, wenn der Nur-Lese-Modus aus ist. Standard: ein.
+  season_control:
+    name: Saison-Steuerung anzeigen
+    description: >-
+      Zeigt den Saison-Wähler (Winter/Sommer) an. Deaktivieren, um ihn auszublenden und versehentliche Änderungen zu verhindern. Nur wirksam, wenn der Nur-Lese-Modus aus ist. Standard: ein.
+  acs_control:
+    name: ACS-Steuerung anzeigen
+    description: >-
+      Zeigt den ACS-Freigabeschalter (Warmwasser) an. Deaktivieren, um ihn auszublenden und versehentliches Schalten zu verhindern. Nur wirksam, wenn der Nur-Lese-Modus aus ist. Standard: ein.
   adv_int:
     name: Erweiterte Integration
     description: Native Home-Assistant-Klimaentitäten für jede aktive Zone erstellen (erfordert deaktivierten Nur-Lese-Modus).
@@ -39,7 +55,7 @@ configuration:
   entity_names:
     name: Entitätsnamen überschreiben
     description: >-
-      Entitäten umbenennen mit je einer Zeile "PRÄFIX=Name". Ein Zonen-Präfix benennt das Gerät dieser Zone und alle zugehörigen Entitäten um, z. B. "Z1=Bäder" (Thermostat und alle Zonensensoren folgen). Eine exakte Parameter-ID benennt eine einzelne Entität um, z. B. "GLOBAL_OUTPUT_3=Umwälzpumpe". Präfixe und IDs berücksichtigen Gross-/Kleinschreibung ("Z1", nicht "z1"). Das Add-on-Protokoll listet die Bezeichnungen Ihres Systems zum Kopieren auf.
+      Entitäten umbenennen mit je einer Zeile "PRÄFIX=Name". Ein Zonen-Präfix benennt das Gerät dieser Zone und alle zugehörigen Entitäten um, z. B. "Z1=Bäder" (Thermostat und alle Zonensensoren folgen). Eine exakte Parameter-ID benennt eine einzelne Entität um, z. B. "GLOBAL_OUTPUT_3=Umwälzpumpe". Präfixe und IDs berücksichtigen Gross-/Kleinschreibung ("Z1", nicht "z1"). Ein Kalender-Präfix ("MT1", "MT2", ...) benennt Preset und Modus dieses Programms gemeinsam um, z. B. "MT3=Bäder". Das Add-on-Protokoll listet die Bezeichnungen Ihres Systems zum Kopieren auf.
   active_zones:
     name: Anzuzeigende Zonen
     description: >-

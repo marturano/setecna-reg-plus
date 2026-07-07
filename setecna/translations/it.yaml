@@ -15,6 +15,22 @@ configuration:
     name: Esponi entità di diagnostica
     description: >-
       Se attivo, espone le entità di diagnostica (codici grezzi, allarmi, uscite scheda, stato pompe/controllore, ...) come entità disabilitate che puoi attivare singolarmente. Se disattivo (default) non vengono create, mantenendo pulite le pagine dei dispositivi.
+  language:
+    name: Lingua etichette menu a tendina
+    description: >-
+      Lingua usata per le opzioni dei menu a tendina/enum (Season, forzatura zone e calendari, modalità calendario). Home Assistant non può tradurle automaticamente. I nomi delle entità restano in inglese. Predefinito: inglese.
+  system_control:
+    name: Mostra controllo System
+    description: >-
+      Mostra il controllo master System on/off (accende o spegne l'intero impianto). Disattivalo per nasconderlo ed evitare spegnimenti accidentali (es. da assistenti vocali). Ha effetto solo con modalità sola lettura disattivata. Predefinito: attivo.
+  season_control:
+    name: Mostra controllo Season
+    description: >-
+      Mostra il selettore Season (inverno/estate). Disattivalo per nasconderlo ed evitare cambi accidentali. Ha effetto solo con modalità sola lettura disattivata. Predefinito: attivo.
+  acs_control:
+    name: Mostra controllo ACS
+    description: >-
+      Mostra lo switch di abilitazione ACS (acqua calda sanitaria). Disattivalo per nasconderlo ed evitare commutazioni accidentali. Ha effetto solo con modalità sola lettura disattivata. Predefinito: attivo.
   adv_int:
     name: Integrazione avanzata
     description: Crea entità climate native di Home Assistant per ogni zona attiva (richiede modalità sola lettura disattivata).
@@ -39,7 +55,7 @@ configuration:
   entity_names:
     name: Rinomina entità
     description: >-
-      Rinomina le entità con una riga "PREFISSO=Nome". Un prefisso di zona rinomina il device di quella zona e tutte le sue entità, es. "Z1=Bagni" (il termostato e tutti i sensori della zona seguono). L'id esatto di un parametro rinomina una singola entità, es. "GLOBAL_OUTPUT_3=Pompa ricircolo". Prefissi e id fanno distinzione tra maiuscole e minuscole (usa "Z1", non "z1"). Il log dell'add-on elenca le etichette del tuo sistema Setecna da copiare.
+      Rinomina le entità con una riga "PREFISSO=Nome". Un prefisso di zona rinomina il device di quella zona e tutte le sue entità, es. "Z1=Bagni" (il termostato e tutti i sensori della zona seguono). L'id esatto di un parametro rinomina una singola entità, es. "GLOBAL_OUTPUT_3=Pompa ricircolo". Prefissi e id fanno distinzione tra maiuscole e minuscole (usa "Z1", non "z1"). Un prefisso di calendario ("MT1", "MT2", ...) rinomina insieme il preset e la modalità di quel programma, es. "MT3=Bagni". Il log dell'add-on elenca le etichette del tuo sistema Setecna da copiare.
   active_zones:
     name: Zone da esporre
     description: >-

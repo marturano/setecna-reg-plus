@@ -15,6 +15,22 @@ configuration:
     name: Expose diagnostic entities
     description: >-
       When enabled, exposes the diagnostic entities (raw codes, alarms, board outputs, heat-pump/controller status, ...) as disabled entities you can turn on individually. When off (default) they are not created, keeping the device pages clean.
+  language:
+    name: Dropdown labels language
+    description: >-
+      Language used for the options of the dropdown/enum entities (Season, zone and calendar forcing, calendar mode). Home Assistant cannot translate these automatically. Names of entities stay in English. Default: English.
+  system_control:
+    name: Show System control
+    description: >-
+      Show the master System on/off control (turns the whole plant on or off). Turn this off to hide it and prevent accidental switching (e.g. from voice assistants). Only applies when read-only mode is off. Default: on.
+  season_control:
+    name: Show Season control
+    description: >-
+      Show the Season selector (winter/summer). Turn off to hide it and prevent accidental changes. Only applies when read-only mode is off. Default: on.
+  acs_control:
+    name: Show ACS control
+    description: >-
+      Show the ACS (domestic hot water) enable switch. Turn off to hide it and prevent accidental switching. Only applies when read-only mode is off. Default: on.
   adv_int:
     name: Advanced integration
     description: Create native Home Assistant climate entities for each active zone (requires read-only mode disabled).
@@ -39,7 +55,7 @@ configuration:
   entity_names:
     name: Entity name overrides
     description: >-
-      Rename entities with one "PREFIX=Name" line per entry. A zone prefix renames that zone's device and every entity under it, e.g. "Z1=Bathrooms" (the thermostat and all zone sensors follow). An exact parameter id renames a single entity, e.g. "GLOBAL_OUTPUT_3=Recirculation pump". Prefixes and ids are case-sensitive (use "Z1", not "z1"). The add-on log lists your system's labels to copy.
+      Rename entities with one "PREFIX=Name" line per entry. A zone prefix renames that zone's device and every entity under it, e.g. "Z1=Bathrooms" (the thermostat and all zone sensors follow). An exact parameter id renames a single entity, e.g. "GLOBAL_OUTPUT_3=Recirculation pump". Prefixes and ids are case-sensitive (use "Z1", not "z1"). A calendar prefix ("MT1", "MT2", ...) renames that schedule's preset and mode together, e.g. "MT3=Bathrooms". The add-on log lists your system's labels to copy.
   active_zones:
     name: Zones to expose
     description: >-

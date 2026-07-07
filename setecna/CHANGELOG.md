@@ -2,7 +2,13 @@
 
 ## 1.0.3
 
+### Added
+- **Show/hide master controls.** Three options, all default on, toggle the visibility of the plant-level controls and remove any previously-created entity when turned off: **System** on/off (`system_control`, `GLOBAL_ENABLE`), **Season** selector (`season_control`, `GLOBAL_SEASON`) and **ACS** enable (`acs_control`, `GLOBAL_ACS_ENABLE`). Useful to prevent accidental changes (e.g. from voice assistants).
+- **Calendar rename by prefix.** `entity_names` now accepts a calendar prefix (`MT1`, `MT2`, ...) that renames a schedule's preset and mode entities together, e.g. `MT3=Bathrooms` (calendars are the day/night/bathrooms zone-group controls).
+- **Dropdown labels language option** (`language`, default English). Localizes the options of the dropdown/enum entities that Home Assistant cannot translate on its own - Season, zone forcing, calendar preset and calendar mode - into English, Italian, German, French or Spanish. Entity names remain in English.
+
 ### Fixed
+- **Temperature sensors no longer show garbage values.** Read-only temperature sensors that did not filter the controller's 16-bit "not available" sentinel showed it as `3276.9 °C` (32769 / 10) when a probe was missing/invalid - the ACS temperature was the visible case. All read-only temperature sensors now blank out (become "unknown") on the 16-bit sentinels. Writable setpoints are unaffected. The filter deliberately keeps `255` (= 25.5 °C), which is a valid reading on these 16-bit channels (e.g. outside temperature).
 - **Stale sub-devices removed from MQTT.** After the "zones only" change (1.0.2), the entities of ACS, circuits, sources, heat pumps, the cascade controller and meters moved to the main *Setecna REG* device, but their old per-element discovery configs stayed on the broker as retained messages, so Home Assistant kept showing empty sub-devices. The add-on now publishes empty retained configs for those merged sub-devices to remove them automatically.
 
 ## 1.0.2

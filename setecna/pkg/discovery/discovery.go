@@ -51,6 +51,12 @@ type Bridge struct {
 	// the device pages clean. Set true to expose them (created disabled, so
 	// the user can enable individual ones).
 	Diagnostics bool
+	// SystemControl, SeasonControl and ACSControl, when false, remove the
+	// corresponding master control (System on/off, Season selector, ACS
+	// enable) so it cannot be toggled by accident. All default true.
+	SystemControl bool
+	SeasonControl bool
+	ACSControl    bool
 }
 
 // New creates a Bridge for the given system. names may be nil.
@@ -134,6 +140,19 @@ func (b *Bridge) entityLabel(key string, attr models.Attributes, elem string) st
 		if n, ok := b.Names[key]; ok && n != "" {
 			return n
 		}
+		// Calendar prefix override: "MT3=Bagni" renames both the calendar's
+		// preset and mode entities at once (e.g. "Calendar 3 preset" ->
+		// "Bagni preset"), since calendars live on the main device and have
+		// no device name to rename.
+		if m := calKeyRe.FindStringSubmatch(key); m != nil {
+			if n, ok := b.Names["MT"+m[1]]; ok && n != "" {
+				old := "Calendar " + m[1]
+				if strings.HasPrefix(attr.Name, old) {
+					return n + attr.Name[len(old):]
+				}
+				return n
+			}
+		}
 	}
 	if elem == "" {
 		return attr.Name
@@ -145,6 +164,9 @@ func (b *Bridge) entityLabel(key string, attr models.Attributes, elem string) st
 	}
 	return capitalize(label)
 }
+
+// calKeyRe matches calendar parameter ids ("MT3_MODE" -> "3").
+var calKeyRe = regexp.MustCompile(`^MT(\d+)_`)
 
 func capitalize(s string) string {
 	if s == "" {
@@ -236,6 +258,13 @@ func (b *Bridge) DeviceConfigs(params models.ParamsMap, responseMap map[string]s
 	}
 	group("") // the main device always exists
 
+	// Master controls the user chose to hide are removed from discovery.
+	hiddenControls := map[string]bool{
+		"GLOBAL_ENABLE":     !b.SystemControl,
+		"GLOBAL_SEASON":     !b.SeasonControl,
+		"GLOBAL_ACS_ENABLE": !b.ACSControl,
+	}
+
 	for key, attr := range params {
 		if b.zoneExcluded(zoneOf(key)) {
 			continue // excluded zones are removed as whole sub-devices below
@@ -248,6 +277,10 @@ func (b *Bridge) DeviceConfigs(params models.ParamsMap, responseMap map[string]s
 		// entities so Home Assistant removes any previously-created ones and
 		// does not re-create them.
 		if !b.Diagnostics && cmp["entity_category"] == "diagnostic" {
+			cmp = map[string]any{"platform": attr.EntityType}
+		}
+		// Hidden master controls: publish an empty config to remove them.
+		if hiddenControls[key] {
 			cmp = map[string]any{"platform": attr.EntityType}
 		}
 		group(elementOf(key)).components[key] = cmp

@@ -36,6 +36,10 @@ type appConfig struct {
 	advInt        bool
 	readonly      bool
 	diagnostics   bool
+	language      string
+	systemControl bool
+	seasonControl bool
+	acsControl    bool
 	cleanupLegacy bool
 	pollInterval  time.Duration
 	names         map[string]string
@@ -100,6 +104,10 @@ func loadConfig() (appConfig, error) {
 	cfg.advInt = envBool("ADV_INT", false)
 	cfg.readonly = envBool("READONLY", true)
 	cfg.diagnostics = envBool("DIAGNOSTICS", false)
+	cfg.language = envOr("LABEL_LANGUAGE", "en")
+	cfg.systemControl = envBool("SYSTEM_CONTROL", true)
+	cfg.seasonControl = envBool("SEASON_CONTROL", true)
+	cfg.acsControl = envBool("ACS_CONTROL", true)
 	cfg.cleanupLegacy = envBool("CLEANUP_LEGACY", true)
 
 	seconds, err := strconv.Atoi(envOr("POLL_INTERVAL", "30"))
@@ -152,6 +160,9 @@ func run(ctx context.Context, cfg appConfig) error {
 	bridge := discovery.New(cfg.systemID, cfg.names)
 	bridge.ActiveZones = cfg.activeZones
 	bridge.Diagnostics = cfg.diagnostics
+	bridge.SystemControl = cfg.systemControl
+	bridge.SeasonControl = cfg.seasonControl
+	bridge.ACSControl = cfg.acsControl
 
 	// --- Setecna cloud ---------------------------------------------------
 	s, err := scraper.New(cfg.systemID)
@@ -180,6 +191,7 @@ func run(ctx context.Context, cfg appConfig) error {
 
 	params := make(models.ParamsMap)
 	params.AddEnabledParams(responseMap, cfg.readonly)
+	params.Localize(cfg.language)
 
 	advClimate := cfg.advInt && !cfg.readonly
 	currentSeason := responseMap["GLOBAL_SEASON"]

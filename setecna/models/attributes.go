@@ -1,6 +1,9 @@
 package models
 
-import "fmt"
+import (
+	"fmt"
+	"regexp"
+)
 
 type Attributes struct {
 	CommandTemplate   string   `json:"command_template"`
@@ -27,8 +30,10 @@ type Attributes struct {
 // (65280/65535) channels. Templates below blank the state on these values
 // so the entity stays "unknown" instead of showing a garbage number.
 const (
-	// tplTempSentinel: scaled temperature (value/10 °C) with sentinel filter.
-	tplTempSentinel = `{% set v = value | int %}{% if v not in [255, 32768, 32769, 65280, 65535] %}{{ v / 10 }}{% endif %}`
+	// tplTemp16Sentinel: scaled temperature (value/10 °C) for 16-bit probe
+	// channels. Filters only the 16-bit "not available" sentinels; 255 is a
+	// valid reading here (25.5 °C), so it must NOT be blanked.
+	tplTemp16Sentinel = `{% set v = value | int %}{% if v not in [32768, 32769, 65280, 65535] %}{{ v / 10 }}{% endif %}`
 	// tplRawSentinel: raw integer with sentinel filter (unit/scale unknown).
 	tplRawSentinel = `{% set v = value | int %}{% if v not in [255, 32768, 32769, 65280, 65535] %}{{ v }}{% endif %}`
 	// tplOnOff: boolean from "1"/other.
@@ -111,7 +116,7 @@ func (m ParamsMap) addGlobals(from map[string]string, static, read, write bool) 
 			DeviceClass:       "temperature",
 			UnitOfMeasurement: "°C",
 			StateClass:        "measurement",
-			ValueTemplate:     "{{ value | int / 10 }}",
+			ValueTemplate:     tplTemp16Sentinel,
 		}
 		if write {
 			// Writable season selector. The cloud accepts writes only on
@@ -146,7 +151,7 @@ func (m ParamsMap) addGlobals(from map[string]string, static, read, write bool) 
 			DeviceClass:       "temperature",
 			UnitOfMeasurement: "°C",
 			StateClass:        "measurement",
-			ValueTemplate:     "{{ value | int / 10 }}",
+			ValueTemplate:     tplTemp16Sentinel,
 		}
 	}
 	if read {
@@ -156,7 +161,7 @@ func (m ParamsMap) addGlobals(from map[string]string, static, read, write bool) 
 			DeviceClass:       "temperature",
 			UnitOfMeasurement: "°C",
 			StateClass:        "measurement",
-			ValueTemplate:     "{{ value | int / 10 }}",
+			ValueTemplate:     tplTemp16Sentinel,
 		}
 		m["GLOBAL_ZONE_RH_HYST"] = Attributes{
 			Name:              "Global zone humidity hysteresis",
@@ -164,7 +169,7 @@ func (m ParamsMap) addGlobals(from map[string]string, static, read, write bool) 
 			DeviceClass:       "humidity",
 			UnitOfMeasurement: "%",
 			StateClass:        "measurement",
-			ValueTemplate:     "{{ value | int / 10 }}",
+			ValueTemplate:     tplTemp16Sentinel,
 		}
 		m["GLOBAL_ZONE_DEICE_TRESH"] = Attributes{
 			Name:              "Global zone de-ice threshold",
@@ -172,7 +177,7 @@ func (m ParamsMap) addGlobals(from map[string]string, static, read, write bool) 
 			DeviceClass:       "temperature",
 			UnitOfMeasurement: "°C",
 			StateClass:        "measurement",
-			ValueTemplate:     "{{ value | int / 10 }}",
+			ValueTemplate:     tplTemp16Sentinel,
 		}
 	}
 	if write {
@@ -244,7 +249,7 @@ func (m ParamsMap) addDomesticHotWater(from map[string]string, static, read, wri
 			DeviceClass:       "temperature",
 			UnitOfMeasurement: "°C",
 			StateClass:        "measurement",
-			ValueTemplate:     "{{ value | int / 10 }}",
+			ValueTemplate:     tplTemp16Sentinel,
 		}
 		m["GLOBAL_SET_ACS"] = Attributes{
 			Name:              "ACS active setpoint",
@@ -252,7 +257,7 @@ func (m ParamsMap) addDomesticHotWater(from map[string]string, static, read, wri
 			DeviceClass:       "temperature",
 			UnitOfMeasurement: "°C",
 			StateClass:        "measurement",
-			ValueTemplate:     "{{ value | int / 10 }}",
+			ValueTemplate:     tplTemp16Sentinel,
 		}
 	}
 	if read {
@@ -262,7 +267,7 @@ func (m ParamsMap) addDomesticHotWater(from map[string]string, static, read, wri
 			DeviceClass:       "temperature",
 			UnitOfMeasurement: "°C",
 			StateClass:        "measurement",
-			ValueTemplate:     "{{ value | int / 10 }}",
+			ValueTemplate:     tplTemp16Sentinel,
 		}
 		m["ACS_SET_COMFORT"] = Attributes{
 			Name:              "ACS comfort setpoint",
@@ -270,7 +275,7 @@ func (m ParamsMap) addDomesticHotWater(from map[string]string, static, read, wri
 			DeviceClass:       "temperature",
 			UnitOfMeasurement: "°C",
 			StateClass:        "measurement",
-			ValueTemplate:     "{{ value | int / 10 }}",
+			ValueTemplate:     tplTemp16Sentinel,
 		}
 		m["ACS_SET_HYST"] = Attributes{
 			Name:              "ACS setpoint hysteresis",
@@ -278,7 +283,7 @@ func (m ParamsMap) addDomesticHotWater(from map[string]string, static, read, wri
 			DeviceClass:       "temperature",
 			UnitOfMeasurement: "°C",
 			StateClass:        "measurement",
-			ValueTemplate:     "{{ value | int / 10 }}",
+			ValueTemplate:     tplTemp16Sentinel,
 		}
 		m["ACS_SET_DELTA"] = Attributes{
 			Name:              "ACS second stage deviation",
@@ -286,7 +291,7 @@ func (m ParamsMap) addDomesticHotWater(from map[string]string, static, read, wri
 			DeviceClass:       "temperature",
 			UnitOfMeasurement: "°C",
 			StateClass:        "measurement",
-			ValueTemplate:     "{{ value | int / 10 }}",
+			ValueTemplate:     tplTemp16Sentinel,
 		}
 	}
 	if write {
@@ -407,7 +412,7 @@ func (m ParamsMap) addZones(from map[string]string, static, read, write bool) {
 					DeviceClass:       "temperature",
 					UnitOfMeasurement: "°C",
 					StateClass:        "measurement",
-					ValueTemplate:     tplTempSentinel,
+					ValueTemplate:     tplTemp16Sentinel,
 				}
 				m["Z"+fmt.Sprint(i)+"_ZONE_MODE"] = Attributes{
 					Name:          "Zone " + fmt.Sprint(i) + " mode",
@@ -598,7 +603,7 @@ func (m ParamsMap) addCircuits(from map[string]string, static, read, write bool)
 					DeviceClass:       "temperature",
 					UnitOfMeasurement: "°C",
 					StateClass:        "measurement",
-					ValueTemplate:     tplTempSentinel,
+					ValueTemplate:     tplTemp16Sentinel,
 				}
 				m["C"+fmt.Sprint(i)+"_OUTPUT_PA"] = Attributes{
 					Name:          "Circuit " + fmt.Sprint(i) + " pump A",
@@ -640,7 +645,7 @@ func (m ParamsMap) addSources(from map[string]string, static, read, write bool) 
 					DeviceClass:       "temperature",
 					UnitOfMeasurement: "°C",
 					StateClass:        "measurement",
-					ValueTemplate:     tplTempSentinel,
+					ValueTemplate:     tplTemp16Sentinel,
 				}
 				m["S"+fmt.Sprint(i)+"_AUXTEMP"] = Attributes{
 					Name:              "Source " + fmt.Sprint(i) + " auxiliary temperature",
@@ -648,7 +653,7 @@ func (m ParamsMap) addSources(from map[string]string, static, read, write bool) 
 					DeviceClass:       "temperature",
 					UnitOfMeasurement: "°C",
 					StateClass:        "measurement",
-					ValueTemplate:     tplTempSentinel,
+					ValueTemplate:     tplTemp16Sentinel,
 				}
 				m["S"+fmt.Sprint(i)+"_SET"] = Attributes{
 					Name:              "Source " + fmt.Sprint(i) + " setpoint",
@@ -656,7 +661,7 @@ func (m ParamsMap) addSources(from map[string]string, static, read, write bool) 
 					DeviceClass:       "temperature",
 					UnitOfMeasurement: "°C",
 					StateClass:        "measurement",
-					ValueTemplate:     tplTempSentinel,
+					ValueTemplate:     tplTemp16Sentinel,
 				}
 				// Raw status code (meaning not reverse engineered yet).
 				m["S"+fmt.Sprint(i)+"_STATUS"] = Attributes{
@@ -902,7 +907,7 @@ func (m ParamsMap) addHeatPumps(from map[string]string, static, read, write bool
 			DeviceClass:       "temperature",
 			UnitOfMeasurement: "°C",
 			StateClass:        "measurement",
-			ValueTemplate:     tplTempSentinel,
+			ValueTemplate:     tplTemp16Sentinel,
 		}
 	}
 	raw := func(id, label string, i int) {
@@ -948,7 +953,7 @@ func (m ParamsMap) addHeatPumpController(from map[string]string, static, read, w
 		DeviceClass:       "temperature",
 		UnitOfMeasurement: "°C",
 		StateClass:        "measurement",
-		ValueTemplate:     tplTempSentinel,
+		ValueTemplate:     tplTemp16Sentinel,
 	}
 	measurement := func(id, label string) {
 		m[id] = Attributes{
@@ -1002,7 +1007,7 @@ func (m ParamsMap) addOpenTherm(from map[string]string, static, read, write bool
 			DeviceClass:       "temperature",
 			UnitOfMeasurement: "°C",
 			StateClass:        "measurement",
-			ValueTemplate:     tplTempSentinel,
+			ValueTemplate:     tplTemp16Sentinel,
 		}
 	}
 	raw := func(id, label string, i int) {
@@ -1070,6 +1075,102 @@ func (m ParamsMap) addSystemAlarms(from map[string]string, static, read, write b
 			Name:          "Alarm word " + s,
 			EntityType:    "sensor",
 			ValueTemplate: tplRawSentinel,
+		}
+	}
+}
+
+// --- Enum/select option localization -------------------------------------
+//
+// Home Assistant does not translate the options of MQTT select/enum entities:
+// they are literal strings, used both as the dropdown choices and (for selects)
+// as the command value. To offer localized dropdowns we rebuild the Options and
+// the value/command templates from a per-language label table, so options and
+// templates always stay in sync. English is the built-in default and is left
+// untouched.
+
+// labelSets holds the localized labels for the enum domains used by Season,
+// zone/calendar forcing and calendar mode.
+var labelSets = map[string]map[string]string{
+	"en": {
+		"winter": "winter", "summer": "summer",
+		"automatic": "automatic", "off": "off", "economy": "economy", "comfort": "comfort",
+		"forced_off": "forced off", "forced_economy": "forced economy", "forced_comfort": "forced comfort",
+	},
+	"it": {
+		"winter": "inverno", "summer": "estate",
+		"automatic": "automatico", "off": "spento", "economy": "economia", "comfort": "comfort",
+		"forced_off": "forzato spento", "forced_economy": "forzato economia", "forced_comfort": "forzato comfort",
+	},
+	"de": {
+		"winter": "Winter", "summer": "Sommer",
+		"automatic": "automatisch", "off": "aus", "economy": "Sparbetrieb", "comfort": "Komfort",
+		"forced_off": "erzwungen aus", "forced_economy": "erzwungen Sparbetrieb", "forced_comfort": "erzwungen Komfort",
+	},
+	"fr": {
+		"winter": "hiver", "summer": "été",
+		"automatic": "automatique", "off": "arrêt", "economy": "économie", "comfort": "confort",
+		"forced_off": "forcé arrêt", "forced_economy": "forcé économie", "forced_comfort": "forcé confort",
+	},
+	"es": {
+		"winter": "invierno", "summer": "verano",
+		"automatic": "automático", "off": "apagado", "economy": "economía", "comfort": "confort",
+		"forced_off": "forzado apagado", "forced_economy": "forzado economía", "forced_comfort": "forzado confort",
+	},
+}
+
+var (
+	zoneForcingRe = regexp.MustCompile(`^Z\d+_FORCING$`)
+	calForcingRe  = regexp.MustCompile(`^MT\d+_FORCING$`)
+	calModeRe     = regexp.MustCompile(`^MT\d+_MODE$`)
+)
+
+// Localize rewrites the options and value/command templates of the localizable
+// enum/select entities (Season, zone forcing, calendar preset, calendar mode)
+// into the given language. Unknown languages and "en" are no-ops.
+func (m ParamsMap) Localize(lang string) {
+	L, ok := labelSets[lang]
+	if !ok || lang == "en" {
+		return
+	}
+	for key, attr := range m {
+		switch {
+		case key == "GLOBAL_SEASON":
+			attr.Options = []string{L["winter"], L["summer"]}
+			if attr.EntityType == "select" {
+				attr.ValueTemplate = fmt.Sprintf(`{%% if value == "1" %%}%s{%% else %%}%s{%% endif %%}`, L["summer"], L["winter"])
+				attr.CommandTemplate = fmt.Sprintf(`{%% if value == "%s" %%}1{%% else %%}0{%% endif %%}`, L["summer"])
+			} else {
+				attr.ValueTemplate = fmt.Sprintf(`{%% if value == "0" %%}%s{%% elif value == "1" %%}%s{%% else %%}{{ value }}{%% endif %%}`, L["winter"], L["summer"])
+			}
+			m[key] = attr
+
+		case zoneForcingRe.MatchString(key):
+			// 0 automatic, 1 off, 2 economy, 3 comfort
+			attr.Options = []string{L["automatic"], L["off"], L["economy"], L["comfort"]}
+			if attr.EntityType == "select" {
+				attr.ValueTemplate = fmt.Sprintf(`{%% if value == "1" %%}%s{%% elif value == "2" %%}%s{%% elif value == "3" %%}%s{%% else %%}%s{%% endif %%}`, L["off"], L["economy"], L["comfort"], L["automatic"])
+				attr.CommandTemplate = fmt.Sprintf(`{%% if value == "%s" %%}1{%% elif value == "%s" %%}2{%% elif value == "%s" %%}3{%% else %%}0{%% endif %%}`, L["off"], L["economy"], L["comfort"])
+			} else {
+				attr.ValueTemplate = fmt.Sprintf(`{%% if value == "0" %%}%s{%% elif value == "1" %%}%s{%% elif value == "2" %%}%s{%% elif value == "3" %%}%s{%% else %%}{{ value }}{%% endif %%}`, L["automatic"], L["off"], L["economy"], L["comfort"])
+			}
+			m[key] = attr
+
+		case calForcingRe.MatchString(key):
+			// 0 automatic, 1 forced off, 2 forced economy, 3 forced comfort
+			attr.Options = []string{L["automatic"], L["forced_off"], L["forced_economy"], L["forced_comfort"]}
+			if attr.EntityType == "select" {
+				attr.ValueTemplate = fmt.Sprintf(`{%% if value == "1" %%}%s{%% elif value == "2" %%}%s{%% elif value == "3" %%}%s{%% else %%}%s{%% endif %%}`, L["forced_off"], L["forced_economy"], L["forced_comfort"], L["automatic"])
+				attr.CommandTemplate = fmt.Sprintf(`{%% if value == "%s" %%}1{%% elif value == "%s" %%}2{%% elif value == "%s" %%}3{%% else %%}0{%% endif %%}`, L["forced_off"], L["forced_economy"], L["forced_comfort"])
+			} else {
+				attr.ValueTemplate = fmt.Sprintf(`{%% if value == "0" %%}%s{%% elif value == "1" %%}%s{%% elif value == "2" %%}%s{%% elif value == "3" %%}%s{%% else %%}{{ value }}{%% endif %%}`, L["automatic"], L["forced_off"], L["forced_economy"], L["forced_comfort"])
+			}
+			m[key] = attr
+
+		case calModeRe.MatchString(key):
+			// 1 off, 2 economy, 3 comfort
+			attr.Options = []string{L["off"], L["economy"], L["comfort"]}
+			attr.ValueTemplate = fmt.Sprintf(`{%% if value == "1" %%}%s{%% elif value == "2" %%}%s{%% elif value == "3" %%}%s{%% else %%}{{ value }}{%% endif %%}`, L["off"], L["economy"], L["comfort"])
+			m[key] = attr
 		}
 	}
 }

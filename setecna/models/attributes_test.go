@@ -140,3 +140,42 @@ func TestRequiredPowerScale(t *testing.T) {
 		t.Fatalf("required power must scale by /100, got %q", a.ValueTemplate)
 	}
 }
+
+func TestLocalize(t *testing.T) {
+	m := ParamsMap{
+		"GLOBAL_SEASON": Attributes{EntityType: "select", Options: []string{"winter", "summer"},
+			ValueTemplate:   `{% if value == "1" %}summer{% else %}winter{% endif %}`,
+			CommandTemplate: `{% if value == "summer" %}1{% else %}0{% endif %}`},
+		"Z3_FORCING": Attributes{EntityType: "select", Options: []string{"automatic", "off", "economy", "comfort"}},
+		"MT1_FORCING": Attributes{EntityType: "sensor", DeviceClass: "enum",
+			Options: []string{"automatic", "forced off", "forced economy", "forced comfort"}},
+		"MT1_MODE": Attributes{EntityType: "sensor", DeviceClass: "enum", Options: []string{"off", "economy", "comfort"}},
+	}
+	m.Localize("it")
+
+	if got := m["GLOBAL_SEASON"].Options; got[0] != "inverno" || got[1] != "estate" {
+		t.Fatalf("season options not localized: %v", got)
+	}
+	// The command template must reference the localized label, or writes break.
+	if want := `{% if value == "estate" %}1{% else %}0{% endif %}`; m["GLOBAL_SEASON"].CommandTemplate != want {
+		t.Fatalf("season command template = %q", m["GLOBAL_SEASON"].CommandTemplate)
+	}
+	if got := m["Z3_FORCING"].Options; got[1] != "spento" || got[2] != "economia" {
+		t.Fatalf("zone forcing options not localized: %v", got)
+	}
+	if got := m["MT1_FORCING"].Options; got[1] != "forzato spento" {
+		t.Fatalf("calendar preset options not localized: %v", got)
+	}
+	if got := m["MT1_MODE"].Options; got[0] != "spento" {
+		t.Fatalf("calendar mode options not localized: %v", got)
+	}
+}
+
+func TestLocalizeEnglishNoop(t *testing.T) {
+	orig := Attributes{EntityType: "select", Options: []string{"winter", "summer"}}
+	m := ParamsMap{"GLOBAL_SEASON": orig}
+	m.Localize("en")
+	if m["GLOBAL_SEASON"].Options[0] != "winter" {
+		t.Fatal("english must be a no-op")
+	}
+}

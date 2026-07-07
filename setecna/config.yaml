@@ -14,6 +14,10 @@ options:
   password: null
   readonly: false
   diagnostics: false
+  language: en
+  system_control: true
+  season_control: true
+  acs_control: true
   adv_int: false
   cleanup_legacy: true
   poll_interval: 30
@@ -25,6 +29,10 @@ schema:
   password: "password"
   readonly: bool
   diagnostics: bool
+  language: "list(en|it|de|fr|es)"
+  system_control: bool
+  season_control: bool
+  acs_control: bool
   adv_int: bool
   cleanup_legacy: bool
   poll_interval: "int(10,600)"

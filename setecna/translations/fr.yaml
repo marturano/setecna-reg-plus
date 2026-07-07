@@ -15,6 +15,22 @@ configuration:
     name: Exposer les entités de diagnostic
     description: >-
       Si activé, expose les entités de diagnostic (codes bruts, alarmes, sorties carte, état pompes/régulateur, ...) comme entités désactivées que vous pouvez activer individuellement. Si désactivé (par défaut), elles ne sont pas créées.
+  language:
+    name: Langue des libellés des listes déroulantes
+    description: >-
+      Langue utilisée pour les options des entités liste déroulante/enum (saison, forçage des zones et calendriers, mode calendrier). Home Assistant ne peut pas les traduire automatiquement. Les noms des entités restent en anglais. Par défaut : anglais.
+  system_control:
+    name: Afficher le contrôle System
+    description: >-
+      Affiche le contrôle maître System marche/arrêt (allume ou éteint toute l'installation). Désactivez-le pour le masquer et éviter les commutations accidentelles (ex. via les assistants vocaux). Actif uniquement si le mode lecture seule est désactivé. Par défaut : activé.
+  season_control:
+    name: Afficher le contrôle Season
+    description: >-
+      Affiche le sélecteur Season (hiver/été). Désactivez pour le masquer et éviter les changements accidentels. Actif uniquement si le mode lecture seule est désactivé. Par défaut : activé.
+  acs_control:
+    name: Afficher le contrôle ACS
+    description: >-
+      Affiche l'interrupteur d'activation ACS (eau chaude sanitaire). Désactivez pour le masquer et éviter les commutations accidentelles. Actif uniquement si le mode lecture seule est désactivé. Par défaut : activé.
   adv_int:
     name: Intégration avancée
     description: Créer des entités climate natives de Home Assistant pour chaque zone active (nécessite le mode lecture seule désactivé).
@@ -39,7 +55,7 @@ configuration:
   entity_names:
     name: Renommage des entités
     description: >-
-      Renommez les entités avec une ligne "PRÉFIXE=Nom" par entrée. Un préfixe de zone renomme l'appareil de cette zone et toutes ses entités, ex. "Z1=Salles de bain" (le thermostat et tous les capteurs de la zone suivent). Un id de paramètre exact renomme une seule entité, ex. "GLOBAL_OUTPUT_3=Pompe de recirculation". Les préfixes et ids sont sensibles à la casse ("Z1", pas "z1"). Le journal de l'add-on liste les libellés de votre système à copier.
+      Renommez les entités avec une ligne "PRÉFIXE=Nom" par entrée. Un préfixe de zone renomme l'appareil de cette zone et toutes ses entités, ex. "Z1=Salles de bain" (le thermostat et tous les capteurs de la zone suivent). Un id de paramètre exact renomme une seule entité, ex. "GLOBAL_OUTPUT_3=Pompe de recirculation". Les préfixes et ids sont sensibles à la casse ("Z1", pas "z1"). Un préfixe de calendrier ("MT1", "MT2", ...) renomme ensemble le préréglage et le mode de ce programme, ex. "MT3=Salles de bain". Le journal de l'add-on liste les libellés de votre système à copier.
   active_zones:
     name: Zones à exposer
     description: >-
