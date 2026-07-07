@@ -16,7 +16,7 @@ Setecna REG PLUS is a fork of the original [homeassistant-addon-setecna](https:/
 
 # Home Assistant Add-on: Setecna REG PLUS
 
-> This documentation is in English. A translated overview is available in the repository README: [Italiano](../README.it.md) · [Deutsch](../README.de.md) · [Français](../README.fr.md) · [Español](../README.es.md). The add-on configuration UI is localised in English, Italian, German, French and Spanish.
+> This documentation is in English. A translated overview is available in the repository README: [Italiano](https://github.com/marturano/setecna-reg-plus/blob/main/README.it.md) · [Deutsch](https://github.com/marturano/setecna-reg-plus/blob/main/README.de.md) · [Français](https://github.com/marturano/setecna-reg-plus/blob/main/README.fr.md) · [Español](https://github.com/marturano/setecna-reg-plus/blob/main/README.es.md). The add-on configuration UI is localised in English, Italian, German, French and Spanish.
 
 ## Why this add-on
 
@@ -103,7 +103,7 @@ C1=Panel mixing circuit
 GLOBAL_OUTPUT_3=Recirculation pump
 ```
 
-- A zone/circuit/source/heat-pump **prefix** (`Z1`, `C1`, `S1`, `HP0`) renames every entity of that element and its thermostat in one go: `Z1=Bagni` produces "Bagni temperature", "Bagni dew point", the "Bagni" thermostat, etc.
+- A **zone prefix** (`Z1`, `Z2`, ...) renames that zone's device and, with it, every entity of the zone and its thermostat in one go: `Z1=Bagni` makes the zone device "Bagni", shown as "Bagni Temperature", "Bagni Dew point", "Bagni Thermostat", etc. Prefixes and parameter ids are **case-sensitive** (use `Z1`, not `z1`).
 - An **exact parameter id** (e.g. `GLOBAL_OUTPUT_3`) renames a single entity.
 
 To discover which zone is which, the add-on prints, on every start, the custom labels you configured on the Setecna panel (`_FREEDESC`/`_XFREEDESC`) and the description code of each active zone. Look at the add-on log after startup and copy the labels into the option. (Automatic naming from the Setecna description codes is intentionally not done: the built-in description dictionary of the controller is not documented, so guessing could mislabel rooms.)

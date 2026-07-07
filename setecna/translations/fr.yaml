@@ -25,26 +25,21 @@ configuration:
     name: Intervalle d'interrogation
     description: Secondes entre les rafraîchissements de données depuis le cloud Setecna (10-600).
   mqtt_host:
-    name: Hôte du broker MQTT (facultatif)
+    name: Hôte du serveur MQTT externe
     description: Nom d'hôte ou IP d'un broker MQTT personnalisé. Laisser vide pour détecter automatiquement l'add-on Mosquitto.
   mqtt_port:
-    name: Port du broker MQTT (facultatif)
+    name: Port du serveur MQTT externe
     description: Port du broker MQTT personnalisé (par défaut 1883). Utilisé uniquement si un hôte personnalisé est défini.
   mqtt_username:
-    name: Nom d'utilisateur MQTT (facultatif)
+    name: Nom d'utilisateur du serveur MQTT externe
     description: Nom d'utilisateur du broker MQTT personnalisé. Laisser vide pour un accès anonyme.
   mqtt_password:
-    name: Mot de passe MQTT (facultatif)
+    name: Mot de passe du serveur MQTT externe
     description: Mot de passe du broker MQTT personnalisé.
   entity_names:
     name: Renommage des entités
     description: >-
-      Renommez les entités avec une entrée "PRÉFIXE=Nom" par ligne, p. ex.
-      "Z1=Salles de bain" renomme toutes les entités de la zone 1 (Salles de
-      bain température, Salles de bain point de rosée, le thermostat "Salles de
-      bain"...). Utilisez un préfixe de zone/circuit/source (Z1, C1, S1, HP0) ou
-      un identifiant de paramètre exact (GLOBAL_OUTPUT_3=Pompe de recirculation).
-      Le journal de l'add-on liste vos libellés Setecna à copier.
+      Renommez les entités avec une ligne "PRÉFIXE=Nom" par entrée. Un préfixe de zone renomme l'appareil de cette zone et toutes ses entités, ex. "Z1=Salles de bain" (le thermostat et tous les capteurs de la zone suivent). Un id de paramètre exact renomme une seule entité, ex. "GLOBAL_OUTPUT_3=Pompe de recirculation". Les préfixes et ids sont sensibles à la casse ("Z1", pas "z1"). Le journal de l'add-on liste les libellés de votre système à copier.
   active_zones:
     name: Zones à exposer
     description: >-

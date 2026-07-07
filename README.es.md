@@ -72,7 +72,7 @@ C1=Circuito mezclado paneles
 GLOBAL_OUTPUT_3=Bomba de recirculación
 ```
 
-Un **prefijo** de zona/circuito/fuente/bomba de calor (`Z1`, `C1`, `S1`, `HP0`) renombra de una vez todas las entidades de ese elemento y su termostato; un **id de parámetro exacto** renombra una sola entidad. Al iniciar, el add-on registra en el log las etiquetas personalizadas de su panel Setecna para copiarlas.
+Un **prefijo de zona** (`Z1`, `Z2`, ...) renombra el dispositivo de esa zona y, con él, todas las entidades de la zona y su termostato de una vez; un **id de parámetro exacto** (p. ej. `GLOBAL_OUTPUT_3`) renombra una sola entidad en el dispositivo principal. Los prefijos e ids **distinguen mayúsculas y minúsculas** (`Z1`, no `z1`). Al iniciar, el add-on registra en el log las etiquetas personalizadas de su panel Setecna para copiarlas.
 
 Consulte [`setecna/DOCS.md`](setecna/DOCS.md) (en inglés) para los topics MQTT, las entidades de diagnóstico, los totales de los contadores de energía, las notas de actualización y los detalles de resiliencia.
 

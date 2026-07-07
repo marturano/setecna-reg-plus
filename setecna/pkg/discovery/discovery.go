@@ -24,7 +24,7 @@ import (
 
 const (
 	// Version of the add-on, shown as origin/software version in HA.
-	Version = "1.0.2"
+	Version = "1.0.3"
 
 	discoveryPrefix = "homeassistant"
 	// REBRAND: if you fork this under a different GitHub owner/repo name,
@@ -597,6 +597,52 @@ func (b *Bridge) LegacyCleanupMessages(params models.ParamsMap) mqtt.Messages {
 		msgs = append(msgs, mqtt.Message{
 			Topic:  fmt.Sprintf("%s/climate/%s_zone_%d/config", discoveryPrefix, b.SystemID, i),
 			Qos:    0,
+			Retain: true,
+		})
+	}
+	return msgs
+}
+
+// legacyElementOf mirrors the pre-"zones only" grouping (every element used to
+// be its own device). Used to clean up those sub-devices now that non-zone
+// entities live on the main device. Zones are intentionally excluded: they are
+// still separate devices.
+func legacyElementOf(key string) string {
+	if strings.HasPrefix(key, "HPC_") {
+		return "HPC"
+	}
+	if strings.HasPrefix(key, "ACS_") ||
+		key == "GLOBAL_ACS_ENABLE" || key == "GLOBAL_T_ACS" || key == "GLOBAL_SET_ACS" {
+		return "ACS"
+	}
+	m := leadRe.FindStringSubmatch(key)
+	if m == nil {
+		return ""
+	}
+	switch m[1] {
+	case "C", "S", "HP", "EM", "OT_G":
+		return m[1] + m[2]
+	}
+	return ""
+}
+
+// MergedSubdeviceCleanup returns empty retained payloads for the element
+// sub-devices (ACS, circuits, sources, heat pumps, controller, meters,
+// generators) that were separate before the "zones only" change. Their
+// entities now live on the main device; this removes the stale, empty
+// sub-device shells left as retained discovery configs on the broker.
+func (b *Bridge) MergedSubdeviceCleanup(params models.ParamsMap) mqtt.Messages {
+	seen := map[string]bool{}
+	var msgs mqtt.Messages
+	for key := range params {
+		elem := legacyElementOf(key)
+		if elem == "" || seen[elem] {
+			continue
+		}
+		seen[elem] = true
+		msgs = append(msgs, mqtt.Message{
+			Topic:  b.configTopicFor(b.SystemID + "_" + elem),
+			Qos:    1,
 			Retain: true,
 		})
 	}

@@ -25,26 +25,21 @@ configuration:
     name: Intervallo di aggiornamento
     description: Secondi tra un aggiornamento dati e l'altro dal cloud Setecna (10-600).
   mqtt_host:
-    name: Host broker MQTT (opzionale)
+    name: Host server MQTT esterno
     description: Hostname o IP di un broker MQTT personalizzato. Lascia vuoto per usare automaticamente l'add-on Mosquitto.
   mqtt_port:
-    name: Porta broker MQTT (opzionale)
+    name: Porta server MQTT esterno
     description: Porta del broker MQTT personalizzato (predefinita 1883). Usata solo se è impostato un host personalizzato.
   mqtt_username:
-    name: Nome utente MQTT (opzionale)
+    name: Nome utente server MQTT esterno
     description: Nome utente per il broker MQTT personalizzato. Lascia vuoto per accesso anonimo.
   mqtt_password:
-    name: Password MQTT (opzionale)
+    name: Password server MQTT esterno
     description: Password per il broker MQTT personalizzato.
   entity_names:
     name: Rinomina entità
     description: >-
-      Rinomina le entità con una riga "PREFISSO=Nome", es. "Z1=Bagni" rinomina
-      tutte le entità della zona 1 (Bagni temperatura, Bagni punto di rugiada,
-      il termostato Bagni...). Usa un prefisso di zona/circuito/sorgente (Z1,
-      C1, S1, HP0) o l'id esatto di un parametro (GLOBAL_OUTPUT_3=Pompa
-      ricircolo). Il log dell'add-on elenca le etichette personalizzate del tuo
-      sistema Setecna da copiare.
+      Rinomina le entità con una riga "PREFISSO=Nome". Un prefisso di zona rinomina il device di quella zona e tutte le sue entità, es. "Z1=Bagni" (il termostato e tutti i sensori della zona seguono). L'id esatto di un parametro rinomina una singola entità, es. "GLOBAL_OUTPUT_3=Pompa ricircolo". Prefissi e id fanno distinzione tra maiuscole e minuscole (usa "Z1", non "z1"). Il log dell'add-on elenca le etichette del tuo sistema Setecna da copiare.
   active_zones:
     name: Zone da esporre
     description: >-

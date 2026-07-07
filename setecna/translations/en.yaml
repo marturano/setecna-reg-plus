@@ -25,25 +25,21 @@ configuration:
     name: Poll interval
     description: Seconds between data refreshes from the Setecna cloud (10-600).
   mqtt_host:
-    name: MQTT broker host (optional)
+    name: External MQTT server host
     description: Hostname or IP of a custom MQTT broker. Leave empty to auto-discover the Mosquitto broker add-on.
   mqtt_port:
-    name: MQTT broker port (optional)
+    name: External MQTT server port
     description: Port of the custom MQTT broker (default 1883). Only used when a custom host is set.
   mqtt_username:
-    name: MQTT username (optional)
+    name: External MQTT server username
     description: Username for the custom MQTT broker. Leave empty for anonymous access.
   mqtt_password:
-    name: MQTT password (optional)
+    name: External MQTT server password
     description: Password for the custom MQTT broker.
   entity_names:
     name: Entity name overrides
     description: >-
-      Rename entities with one "PREFIX=Name" per line, e.g. "Z1=Bagni" renames
-      every zone-1 entity (Bagni temperature, Bagni dew point, the Bagni
-      thermostat...). Use a zone/circuit/source prefix (Z1, C1, S1, HP0) or an
-      exact parameter id (GLOBAL_OUTPUT_3=Recirculation pump). The add-on log
-      lists your Setecna custom labels to copy from.
+      Rename entities with one "PREFIX=Name" line per entry. A zone prefix renames that zone's device and every entity under it, e.g. "Z1=Bathrooms" (the thermostat and all zone sensors follow). An exact parameter id renames a single entity, e.g. "GLOBAL_OUTPUT_3=Recirculation pump". Prefixes and ids are case-sensitive (use "Z1", not "z1"). The add-on log lists your system's labels to copy.
   active_zones:
     name: Zones to expose
     description: >-

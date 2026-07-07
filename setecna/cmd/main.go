@@ -200,6 +200,7 @@ func run(ctx context.Context, cfg appConfig) error {
 			legacy = bridge.LegacyCleanupMessages(params)
 		}
 		configMsgs, err := bridge.DeviceConfigs(params, responseMap, advClimate)
+		mergeCleanup := bridge.MergedSubdeviceCleanup(params)
 		stateMsgs := bridge.StateMessages(snapshot, params)
 		upMsg := bridge.UpdateStateMessage(latestRelease, latestReleaseURL)
 		stateMu.Unlock()
@@ -210,6 +211,10 @@ func run(ctx context.Context, cfg appConfig) error {
 		}
 		if legacy != nil {
 			c.BatchPublish(legacy)
+		}
+		// Remove sub-devices merged into the main device (zones-only change).
+		if len(mergeCleanup) > 0 {
+			c.BatchPublish(mergeCleanup)
 		}
 		c.BatchPublish(configMsgs)
 		c.BatchPublish(stateMsgs)

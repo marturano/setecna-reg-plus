@@ -72,7 +72,7 @@ C1=Circuit mélangé panneaux
 GLOBAL_OUTPUT_3=Pompe de recirculation
 ```
 
-Un **préfixe** de zone/circuit/source/pompe à chaleur (`Z1`, `C1`, `S1`, `HP0`) renomme d'un coup toutes les entités de cet élément et son thermostat ; un **identifiant de paramètre exact** renomme une seule entité. Au démarrage, l'add-on journalise les libellés personnalisés de votre panneau Setecna à copier.
+Un **préfixe de zone** (`Z1`, `Z2`, ...) renomme l'appareil de cette zone et, avec lui, toutes les entités de la zone et son thermostat d'un coup ; un **identifiant de paramètre exact** (ex. `GLOBAL_OUTPUT_3`) renomme une seule entité sur l'appareil principal. Les préfixes et identifiants sont **sensibles à la casse** (`Z1`, pas `z1`). Au démarrage, l'add-on journalise les libellés personnalisés de votre panneau Setecna à copier.
 
 Voir [`setecna/DOCS.md`](setecna/DOCS.md) (en anglais) pour les topics MQTT, les entités de diagnostic, les totaux des compteurs d'énergie, les notes de mise à niveau et les détails de résilience.
 

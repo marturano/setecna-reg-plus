@@ -25,26 +25,21 @@ configuration:
     name: Intervalo de sondeo
     description: Segundos entre las actualizaciones de datos desde la nube de Setecna (10-600).
   mqtt_host:
-    name: Host del broker MQTT (opcional)
+    name: Host del servidor MQTT externo
     description: Nombre de host o IP de un broker MQTT personalizado. Déjelo vacío para detectar automáticamente el add-on Mosquitto.
   mqtt_port:
-    name: Puerto del broker MQTT (opcional)
+    name: Puerto del servidor MQTT externo
     description: Puerto del broker MQTT personalizado (predeterminado 1883). Solo se usa cuando se define un host personalizado.
   mqtt_username:
-    name: Usuario MQTT (opcional)
+    name: Usuario del servidor MQTT externo
     description: Usuario del broker MQTT personalizado. Déjelo vacío para acceso anónimo.
   mqtt_password:
-    name: Contraseña MQTT (opcional)
+    name: Contraseña del servidor MQTT externo
     description: Contraseña del broker MQTT personalizado.
   entity_names:
     name: Renombrar entidades
     description: >-
-      Renombre las entidades con una entrada "PREFIJO=Nombre" por línea, p. ej.
-      "Z1=Baños" renombra todas las entidades de la zona 1 (Baños temperatura,
-      Baños punto de rocío, el termostato "Baños"...). Use un prefijo de
-      zona/circuito/fuente (Z1, C1, S1, HP0) o un id de parámetro exacto
-      (GLOBAL_OUTPUT_3=Bomba de recirculación). El registro del add-on lista sus
-      etiquetas de Setecna para copiarlas.
+      Renombre las entidades con una línea "PREFIJO=Nombre" por entrada. Un prefijo de zona renombra el dispositivo de esa zona y todas sus entidades, p. ej. "Z1=Baños" (el termostato y todos los sensores de la zona lo siguen). Un id de parámetro exacto renombra una sola entidad, p. ej. "GLOBAL_OUTPUT_3=Bomba de recirculación". Los prefijos e ids distinguen mayúsculas y minúsculas ("Z1", no "z1"). El registro del add-on lista las etiquetas de su sistema para copiar.
   active_zones:
     name: Zonas a exponer
     description: >-

@@ -521,3 +521,36 @@ func TestDiagnosticsToggle(t *testing.T) {
 		t.Fatal("diagnostic entity should be disabled by default")
 	}
 }
+
+func TestMergedSubdeviceCleanup(t *testing.T) {
+	b := New("SYS1", nil)
+	params := models.ParamsMap{
+		"C1_RET_TEMP":     models.Attributes{EntityType: "sensor", Name: "Circuit 1 return temperature"},
+		"S1_TEMP":         models.Attributes{EntityType: "sensor", Name: "Source 1 temperature"},
+		"HP0_STATUS":      models.Attributes{EntityType: "sensor", Name: "Heat pump 0 status"},
+		"HPC_PID_TEMP":    models.Attributes{EntityType: "sensor", Name: "Controller PID temp"},
+		"ACS_SET_COMFORT": models.Attributes{EntityType: "number", Name: "ACS comfort setpoint"},
+		"Z1_TEMP":         models.Attributes{EntityType: "sensor", DeviceClass: "temperature", Name: "Zone 1 temperature"},
+		"GLOBAL_SEASON":   models.Attributes{EntityType: "select", Name: "Season"},
+	}
+	msgs := b.MergedSubdeviceCleanup(params)
+
+	got := map[string]bool{}
+	for _, m := range msgs {
+		if len(m.Payload) != 0 {
+			t.Fatalf("cleanup payload must be empty (removal), topic %s", m.Topic)
+		}
+		got[m.Topic] = true
+	}
+	// Non-zone element sub-devices must be cleaned up.
+	for _, elem := range []string{"C1", "S1", "HP0", "HPC", "ACS"} {
+		topic := b.configTopicFor("SYS1_" + elem)
+		if !got[topic] {
+			t.Fatalf("missing cleanup for %s (topic %s)", elem, topic)
+		}
+	}
+	// Zones and plain globals must NOT be cleaned up.
+	if got[b.configTopicFor("SYS1_Z1")] {
+		t.Fatal("zone Z1 must not be removed")
+	}
+}

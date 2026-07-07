@@ -1,5 +1,10 @@
 <!-- https://developers.home-assistant.io/docs/add-ons/presentation#keeping-a-changelog -->
 
+## 1.0.3
+
+### Fixed
+- **Stale sub-devices removed from MQTT.** After the "zones only" change (1.0.2), the entities of ACS, circuits, sources, heat pumps, the cascade controller and meters moved to the main *Setecna REG* device, but their old per-element discovery configs stayed on the broker as retained messages, so Home Assistant kept showing empty sub-devices. The add-on now publishes empty retained configs for those merged sub-devices to remove them automatically.
+
 ## 1.0.2
 
 UI and integration refinements based on live testing.

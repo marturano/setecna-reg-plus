@@ -72,7 +72,7 @@ C1=Miscelato pannelli
 GLOBAL_OUTPUT_3=Pompa ricircolo
 ```
 
-Un **prefisso** di zona/circuito/sorgente/pompa di calore (`Z1`, `C1`, `S1`, `HP0`) rinomina in un colpo solo tutte le entità di quell'elemento e il suo termostato; un **id di parametro esatto** rinomina una singola entità. All'avvio l'add-on scrive nel log le etichette personalizzate del tuo pannello Setecna da copiare.
+Un **prefisso di zona** (`Z1`, `Z2`, ...) rinomina il device di quella zona e, con esso, tutte le entità della zona e il suo termostato in un colpo solo; un **id di parametro esatto** (es. `GLOBAL_OUTPUT_3`) rinomina una singola entità sul device principale. Prefissi e id fanno **distinzione tra maiuscole e minuscole** (usa `Z1`, non `z1`). All'avvio l'add-on scrive nel log le etichette personalizzate del tuo pannello Setecna da copiare.
 
 Vedi [`setecna/DOCS.md`](setecna/DOCS.md) (in inglese) per topic MQTT, entità diagnostiche, totalizzatori energia, note di aggiornamento e dettagli sulla resilienza.
 

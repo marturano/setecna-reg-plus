@@ -72,7 +72,7 @@ C1=Panel mixing circuit
 GLOBAL_OUTPUT_3=Recirculation pump
 ```
 
-A zone/circuit/source/heat-pump **prefix** (`Z1`, `C1`, `S1`, `HP0`) renames every entity of that element and its thermostat at once; an **exact parameter id** renames a single entity. On startup the add-on logs the custom labels stored in your Setecna panel to copy from.
+A **zone prefix** (`Z1`, `Z2`, ...) renames that zone's device and, with it, every entity of the zone and its thermostat at once; an **exact parameter id** (e.g. `GLOBAL_OUTPUT_3`) renames a single entity on the main device. Prefixes and ids are **case-sensitive** (use `Z1`, not `z1`). On startup the add-on logs the custom labels stored in your Setecna panel to copy from.
 
 See [`setecna/DOCS.md`](setecna/DOCS.md) for MQTT topics, diagnostic entities, energy-meter totals, upgrade notes and resilience details.
 

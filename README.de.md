@@ -72,7 +72,7 @@ C1=Mischkreis Paneele
 GLOBAL_OUTPUT_3=Zirkulationspumpe
 ```
 
-Ein **Präfix** für Zone/Kreis/Quelle/Wärmepumpe (`Z1`, `C1`, `S1`, `HP0`) benennt alle Entitäten dieses Elements samt Thermostat auf einmal um; eine **exakte Parameter-ID** benennt eine einzelne Entität um. Beim Start protokolliert das Add-on die in Ihrem Setecna-Panel gespeicherten Bezeichnungen zum Kopieren.
+Ein **Zonen-Präfix** (`Z1`, `Z2`, ...) benennt das Gerät dieser Zone und damit alle Entitäten der Zone samt Thermostat auf einmal um; eine **exakte Parameter-ID** (z. B. `GLOBAL_OUTPUT_3`) benennt eine einzelne Entität auf dem Hauptgerät um. Präfixe und IDs berücksichtigen **Gross-/Kleinschreibung** (`Z1`, nicht `z1`). Beim Start protokolliert das Add-on die in Ihrem Setecna-Panel gespeicherten Bezeichnungen zum Kopieren.
 
 Siehe [`setecna/DOCS.md`](setecna/DOCS.md) (auf Englisch) für MQTT-Topics, Diagnoseentitäten, Energiezähler-Summen, Update-Hinweise und Details zur Ausfallsicherheit.
 
