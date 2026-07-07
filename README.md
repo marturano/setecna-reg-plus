@@ -17,7 +17,7 @@ This repository contains the Home Assistant add-on that integrates a **Setecna R
 
 ## Features
 
-- **One Home Assistant device per element** (main *Setecna REG* device plus one per zone, circuit, source, heat pump and ACS), so entities are grouped and a whole zone can be renamed from its device page (requires Home Assistant **2024.11+**, verified up to **2026.7**).
+- **One Home Assistant device per zone** (plus the main *Setecna REG* device that holds globals, ACS, circuits, sources, heat pumps and the cascade controller), so a whole zone can be renamed from its device page (requires Home Assistant **2024.11+**, verified up to **2026.7**).
 - **Master controls** (when writable): plant **on/off**, **season** (winter/summer) and **ACS on/off**.
 - **Native climate entities** (optional *Advanced integration* mode) for each active zone, with heating/cooling `hvac_action`, a single target temperature (the season's comfort setpoint), translated presets (`eco`/`comfort`) and, where available, humidity control.
 - **Extra device families** exposed as read-only diagnostics (disabled by default to keep pages clean): heat-pump units and cascade controller, OpenTherm generator cascade (when enabled), board relay outputs, system alarms, zone dew point, circuit return temperatures and pumps, source temperatures, and energy-meter 32-bit totals. Unavailable channels stay *unknown* instead of showing garbage values.

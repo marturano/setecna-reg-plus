@@ -427,6 +427,13 @@ func (m ParamsMap) addZones(from map[string]string, static, read, write bool) {
 				}
 			}
 			if read {
+				m["Z"+fmt.Sprint(i)+"_FORCING"] = Attributes{
+					Name:          "Zone " + fmt.Sprint(i) + " forcing",
+					EntityType:    "sensor",
+					DeviceClass:   "enum",
+					ValueTemplate: "{% if value == \"0\" %}automatic{% elif value == \"1\" %}off{% elif value == \"2\" %}economy{% elif value == \"3\" %}comfort{% else %}{{ value }}{% endif %}",
+					Options:       []string{"automatic", "off", "economy", "comfort"},
+				}
 				m["Z"+fmt.Sprint(i)+"_SET_CW"] = Attributes{
 					Name:              "Zone " + fmt.Sprint(i) + " C.W. setpoint",
 					EntityType:        "sensor",
@@ -465,6 +472,13 @@ func (m ParamsMap) addZones(from map[string]string, static, read, write bool) {
 				}
 			}
 			if write {
+				m["Z"+fmt.Sprint(i)+"_FORCING"] = Attributes{
+					Name:            "Zone " + fmt.Sprint(i) + " forcing",
+					EntityType:      "select",
+					Options:         []string{"automatic", "off", "economy", "comfort"},
+					ValueTemplate:   "{% if value == \"1\" %}off{% elif value == \"2\" %}economy{% elif value == \"3\" %}comfort{% else %}automatic{% endif %}",
+					CommandTemplate: "{% if value == \"off\" %}1{% elif value == \"economy\" %}2{% elif value == \"comfort\" %}3{% else %}0{% endif %}",
+				}
 				m["Z"+fmt.Sprint(i)+"_SET_CW"] = Attributes{
 					Name:              "Zone " + fmt.Sprint(i) + " C.W. setpoint",
 					EntityType:        "number",

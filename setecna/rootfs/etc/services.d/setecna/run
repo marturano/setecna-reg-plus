@@ -38,6 +38,7 @@ export REG_USER="$(bashio::config 'username')"
 export REG_PASSWORD="$(bashio::config 'password')"
 export ADV_INT="$(bashio::config 'adv_int')"
 export READONLY="$(bashio::config 'readonly')"
+export DIAGNOSTICS="$(bashio::config 'diagnostics')"
 export CLEANUP_LEGACY="$(bashio::config 'cleanup_legacy')"
 export POLL_INTERVAL="$(bashio::config 'poll_interval')"
 

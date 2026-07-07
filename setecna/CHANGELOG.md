@@ -1,5 +1,18 @@
 <!-- https://developers.home-assistant.io/docs/add-ons/presentation#keeping-a-changelog -->
 
+## 1.0.2
+
+UI and integration refinements based on live testing.
+
+### Changed
+- **Only zones are separate devices.** Each zone stays its own Home Assistant device (for the native "rename the whole zone" behaviour); everything else - globals, ACS, circuits, sources, heat pumps, cascade controller, meters - now lives on the main *Setecna REG* device with full descriptive names, instead of many small sub-devices.
+- **Thermostat is a normal entity** labelled "Thermostat" (shown as "<zone> Thermostat") instead of the zone device's main entity, so renaming and regenerating entity IDs behaves predictably.
+- **Zone forcing** (automatic/off/economy/comfort) is exposed as its own `select` again, and the thermostat no longer carries `preset_modes`: Amazon Alexa special-cases the `eco` preset and mis-reported the thermostat state. The thermostat now exposes only mode + temperature, which Alexa handles cleanly.
+- **`active_zones` is now a dropdown** (pick 1-32 per entry) instead of a free-text field.
+
+### Added
+- **"Expose diagnostic entities" option** (default off). When off, diagnostic entities (raw codes, alarms, board outputs, heat-pump/controller status, ...) are not created, and any previously-created ones are removed, keeping the device pages clean. Turn it on to expose them as disabled entities you can enable individually.
+
 ## 1.0.1
 
 Maintenance release with thermostat, controls and layout fixes on top of 1.0.0.

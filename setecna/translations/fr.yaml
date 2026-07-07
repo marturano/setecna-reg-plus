@@ -11,6 +11,10 @@ configuration:
   readonly:
     name: Mode lecture seule
     description: N'exposer que les capteurs, ne jamais rien réécrire vers le système Setecna.
+  diagnostics:
+    name: Exposer les entités de diagnostic
+    description: >-
+      Si activé, expose les entités de diagnostic (codes bruts, alarmes, sorties carte, état pompes/régulateur, ...) comme entités désactivées que vous pouvez activer individuellement. Si désactivé (par défaut), elles ne sont pas créées.
   adv_int:
     name: Intégration avancée
     description: Créer des entités climate natives de Home Assistant pour chaque zone active (nécessite le mode lecture seule désactivé).

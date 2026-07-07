@@ -71,6 +71,7 @@ func deviceOf(t *testing.T, b *Bridge, params models.ParamsMap, rm map[string]st
 
 func TestDeviceConfig(t *testing.T) {
 	b := New("SYS1", nil)
+	b.Diagnostics = true
 	params := make(models.ParamsMap)
 	params.AddEnabledParams(testResponseMap(), false)
 
@@ -123,9 +124,10 @@ func TestDeviceConfig(t *testing.T) {
 	if z1["unique_id"] != "SYS1_zone_1" {
 		t.Fatalf("zone_1 unique_id = %v (must match v1 for seamless migration)", z1["unique_id"])
 	}
-	// The thermostat is the main entity of its zone device: name must be null.
-	if name, present := z1["name"]; !present || name != nil {
-		t.Fatalf("zone_1 climate name must be null (main entity), got %v", name)
+	// The thermostat is a normal entity labelled "Thermostat" (not the
+	// device's main entity), so HA composes "<zone> Thermostat".
+	if z1["name"] != "Thermostat" {
+		t.Fatalf("zone_1 climate name should be 'Thermostat', got %v", z1["name"])
 	}
 	if _, ok := z1["current_humidity_topic"]; !ok {
 		t.Fatal("zone_1 should expose humidity")
@@ -158,10 +160,10 @@ func TestDeviceConfig(t *testing.T) {
 	if _, ok := z1["temperature_low_state_topic"]; ok {
 		t.Fatal("climate must expose a single target, not a low/high range")
 	}
-	// Presets must be HA standard constants so the frontend translates them.
-	pm, _ := z1["preset_modes"].([]any)
-	if len(pm) != 2 || pm[0] != "eco" || pm[1] != "comfort" {
-		t.Fatalf("preset_modes must be [eco comfort], got %v", z1["preset_modes"])
+	// Presets must NOT be exposed on the climate: Alexa mis-handles the "eco"
+	// preset. The economy/comfort forcing is a separate select instead.
+	if _, ok := z1["preset_modes"]; ok {
+		t.Fatal("climate must not expose preset_modes (breaks Alexa)")
 	}
 
 	// Every component must have platform + unique_id and state topics
@@ -283,6 +285,7 @@ func TestNaming(t *testing.T) {
 		"GLOBAL_OUTPUT_3": "Recirculation pump",
 	}
 	b := New("SYS1", names)
+	b.Diagnostics = true
 
 	// Element device name comes from the override; entity label is the
 	// stripped, capitalised remainder.
@@ -298,12 +301,9 @@ func TestNaming(t *testing.T) {
 	if got := b.entityLabel("Z1_DEWPOINT", models.Attributes{Name: "Zone 1 dew point"}, "Z1"); got != "Dew point" {
 		t.Fatalf("entity label (dew point) = %q", got)
 	}
-	// HPC element device + label.
-	if got := b.deviceName("HPC"); got != "Heat pump controller" {
-		t.Fatalf("HPC device name = %q", got)
-	}
-	if got := b.entityLabel("HPC_PID_TEMP", models.Attributes{Name: "Heat pump controller PID temperature"}, "HPC"); got != "PID temperature" {
-		t.Fatalf("HPC label = %q", got)
+	// Non-zone entities stay on the main device with their full name.
+	if got := b.entityLabel("HPC_PID_TEMP", models.Attributes{Name: "Heat pump controller PID temperature"}, ""); got != "Heat pump controller PID temperature" {
+		t.Fatalf("HPC entity on main device should keep full name, got %q", got)
 	}
 	// Main-device entity keeps its full name; exact-id override wins.
 	if got := b.entityLabel("GLOBAL_OUTPUT_3", models.Attributes{Name: "Output 3"}, ""); got != "Recirculation pump" {
@@ -349,6 +349,7 @@ func TestEntityCategoryRule(t *testing.T) {
 
 func TestActiveZonesFilter(t *testing.T) {
 	b := New("SYS1", nil)
+	b.Diagnostics = true
 	b.ActiveZones = map[int]bool{1: true, 2: true} // solo Z1 e Z2
 
 	params := models.ParamsMap{
@@ -475,27 +476,48 @@ func TestGlobalWriteKeyPrefix(t *testing.T) {
 	}
 }
 
-func TestACSGroupedOnOwnDevice(t *testing.T) {
-	b := New("SYS1", nil)
-	// ACS params (both ACS_* and ACS-related globals) land on the ACS device.
-	for _, k := range []string{"ACS_SET_COMFORT", "GLOBAL_ACS_ENABLE", "GLOBAL_T_ACS", "GLOBAL_SET_ACS"} {
-		if got := elementOf(k); got != "ACS" {
-			t.Fatalf("%s should map to ACS device, got %q", k, got)
+func TestOnlyZonesAreDevices(t *testing.T) {
+	// Zones map to their own device; everything else stays on the main device.
+	if got := elementOf("Z2_TEMP"); got != "Z2" {
+		t.Fatalf("Z2_TEMP should map to Z2 device, got %q", got)
+	}
+	for _, k := range []string{
+		"ACS_SET_COMFORT", "GLOBAL_ACS_ENABLE", "GLOBAL_SEASON",
+		"C1_RET_TEMP", "S1_TEMP", "HP2_TACS", "HPC_PID_TEMP",
+		"EM1_ACCHI", "OT_G0_TEMP", "GLOBAL_OUTPUT_3",
+	} {
+		if got := elementOf(k); got != "" {
+			t.Fatalf("%s should stay on the main device, got %q", k, got)
 		}
 	}
-	// A heat-pump ACS temperature stays on its heat-pump device, not ACS.
-	if got := elementOf("HP2_TACS"); got != "HP2" {
-		t.Fatalf("HP2_TACS should stay on HP2, got %q", got)
+}
+
+func TestDiagnosticsToggle(t *testing.T) {
+	params := models.ParamsMap{
+		"Z1_TEMP":    models.Attributes{EntityType: "sensor", DeviceClass: "temperature", Name: "Zone 1 temperature"},
+		"HP0_STATUS": models.Attributes{EntityType: "sensor", Name: "Heat pump 0 status"},
 	}
-	// Non-ACS globals stay on the main device.
-	if got := elementOf("GLOBAL_SEASON"); got != "" {
-		t.Fatalf("GLOBAL_SEASON should stay on main device, got %q", got)
+	rm := map[string]string{}
+
+	// Diagnostics off (default): the diagnostic entity is a removal (no unique_id),
+	// the primary one is untouched.
+	off := New("SYS1", nil)
+	c := allComponents(t, off, params, rm, false)
+	if _, ok := c["HP0_STATUS"]["unique_id"]; ok {
+		t.Fatal("diagnostic entity must be removed when diagnostics are off")
 	}
-	// The ACS enable switch labels cleanly under the ACS device.
-	if got := b.entityLabel("GLOBAL_ACS_ENABLE", models.Attributes{Name: "ACS enable"}, "ACS"); got != "Enable" {
-		t.Fatalf("ACS enable label = %q", got)
+	if c["Z1_TEMP"]["unique_id"] == nil {
+		t.Fatal("primary entity must stay when diagnostics are off")
 	}
-	if got := b.deviceName("ACS"); got != "ACS" {
-		t.Fatalf("ACS device name = %q", got)
+
+	// Diagnostics on: the diagnostic entity is a full (disabled) component.
+	on := New("SYS1", nil)
+	on.Diagnostics = true
+	c = allComponents(t, on, params, rm, false)
+	if c["HP0_STATUS"]["unique_id"] == nil {
+		t.Fatal("diagnostic entity must be published when diagnostics are on")
+	}
+	if c["HP0_STATUS"]["enabled_by_default"] != false {
+		t.Fatal("diagnostic entity should be disabled by default")
 	}
 }

@@ -106,6 +106,10 @@ Beyond zones and circuits, the add-on exposes the heat-pump units and cascade co
 
 Some fields (power, status, error and request codes) are exposed as **raw values** because their exact unit or encoding has not been reverse engineered yet; their names end with "(raw)" or "code". If you work out the correct scale on your system, please open an issue.
 
+## Diagnostic entities
+
+By default the add-on does not create diagnostic entities (raw device codes, alarms, board outputs, heat-pump/controller status). Enable **Expose diagnostic entities** to publish them as disabled entities that you can turn on individually from Home Assistant.
+
 ### Heat-pump controller values
 
 `Heat pump controller PID temperature` is in °C, `active stages` is a plain count and `required power` is in kW (the raw register holds hundredths of a kW, confirmed against 5 kW nominal stages). The other controller fields (PID output, grace timer, heating/DHW requests, status/error codes, flags) remain raw: their unit or encoding is not documented, so they are exposed as-is rather than guessed.
@@ -124,5 +128,5 @@ Each energy accumulator is split by the controller into a low word (`ACCLO`/`ACC
 For each active zone the *Advanced integration* mode creates a `climate` entity:
 - The HVAC **mode** follows the zone forcing: `off` when the zone is forced off, `heat`/`cool` otherwise. Changing the mode from the card writes the forcing back to the system (heat/cool -> automatic, off -> forced off).
 - The **hvac action** (heating/cooling/idle) reflects the actual zone relay output.
-- **Presets** map to Home Assistant's standard constants so the frontend translates them: `eco` = economy forcing, `comfort` = comfort forcing, `none` = automatic.
+- The **zone forcing** (automatic/off/economy/comfort) is a separate `select` entity, not a thermostat preset: Amazon Alexa mis-handles the `eco` preset, so the thermostat exposes only mode + temperature.
 - A **single target temperature** maps to the season's comfort setpoint (`SET_CW` winter / `SET_CS` summer). The economy setpoint stays adjustable as its own `number` entity (`SET_EW` / `SET_ES`). A single setpoint (rather than a low/high range) is what Amazon Alexa and most UIs expect for a single-mode thermostat.

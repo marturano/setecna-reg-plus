@@ -35,6 +35,7 @@ type appConfig struct {
 	mqttPassword  string
 	advInt        bool
 	readonly      bool
+	diagnostics   bool
 	cleanupLegacy bool
 	pollInterval  time.Duration
 	names         map[string]string
@@ -98,6 +99,7 @@ func loadConfig() (appConfig, error) {
 	}
 	cfg.advInt = envBool("ADV_INT", false)
 	cfg.readonly = envBool("READONLY", true)
+	cfg.diagnostics = envBool("DIAGNOSTICS", false)
 	cfg.cleanupLegacy = envBool("CLEANUP_LEGACY", true)
 
 	seconds, err := strconv.Atoi(envOr("POLL_INTERVAL", "30"))
@@ -149,6 +151,7 @@ func main() {
 func run(ctx context.Context, cfg appConfig) error {
 	bridge := discovery.New(cfg.systemID, cfg.names)
 	bridge.ActiveZones = cfg.activeZones
+	bridge.Diagnostics = cfg.diagnostics
 
 	// --- Setecna cloud ---------------------------------------------------
 	s, err := scraper.New(cfg.systemID)

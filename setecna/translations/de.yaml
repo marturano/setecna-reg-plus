@@ -11,6 +11,10 @@ configuration:
   readonly:
     name: Nur-Lese-Modus
     description: Nur Sensoren bereitstellen, niemals etwas an das Setecna-System zurückschreiben.
+  diagnostics:
+    name: Diagnoseentitäten anzeigen
+    description: >-
+      Wenn aktiviert, werden die Diagnoseentitäten (Rohcodes, Alarme, Platinenausgänge, Wärmepumpen-/Reglerstatus, ...) als deaktivierte Entitäten bereitgestellt, die einzeln aktiviert werden können. Wenn aus (Standard), werden sie nicht erstellt.
   adv_int:
     name: Erweiterte Integration
     description: Native Home-Assistant-Klimaentitäten für jede aktive Zone erstellen (erfordert deaktivierten Nur-Lese-Modus).

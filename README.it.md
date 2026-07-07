@@ -17,7 +17,7 @@ Questo repository contiene l'add-on che integra un sistema termico **Setecna REG
 
 ## Funzionalità
 
-- **Un device Home Assistant per elemento** (device principale *Setecna REG* più uno per ogni zona, circuito, sorgente, pompa di calore e ACS): le entità sono raggruppate e puoi rinominare un'intera zona dalla sua pagina device (richiede Home Assistant **2024.11+**, verificato fino alla **2026.7**).
+- **Un device Home Assistant per zona** (più il device principale *Setecna REG* che raccoglie globali, ACS, circuiti, sorgenti, pompe di calore e controllore): puoi rinominare un'intera zona dalla sua pagina device (richiede Home Assistant **2024.11+**, verificato fino alla **2026.7**).
 - **Controlli master** (quando scrivibile): **on/off** impianto, **stagione** (inverno/estate) e **on/off ACS**.
 - **Entità climate native** (modalità *Integrazione avanzata*) per ogni zona attiva, con `hvac_action` riscaldamento/raffrescamento, una singola temperatura target (il setpoint comfort della stagione), preset tradotti (`eco`/`comfort`) e, dove disponibile, controllo umidità.
 - **Famiglie di dispositivi aggiuntive** esposte come diagnostica in sola lettura: unità pompa di calore e controllore cascata, cascata generatori OpenTherm (quando abilitata), uscite relè della scheda, allarmi di sistema, punto di rugiada di zona, temperature di ritorno e pompe dei circuiti, temperature delle sorgenti e totalizzatori energia a 32 bit. I canali non disponibili restano *sconosciuti* invece di mostrare valori spuri.

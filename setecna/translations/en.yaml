@@ -11,6 +11,10 @@ configuration:
   readonly:
     name: Read-only mode
     description: Only expose sensors, never write anything back to the Setecna system.
+  diagnostics:
+    name: Expose diagnostic entities
+    description: >-
+      When enabled, exposes the diagnostic entities (raw codes, alarms, board outputs, heat-pump/controller status, ...) as disabled entities you can turn on individually. When off (default) they are not created, keeping the device pages clean.
   adv_int:
     name: Advanced integration
     description: Create native Home Assistant climate entities for each active zone (requires read-only mode disabled).

@@ -24,7 +24,7 @@ import (
 
 const (
 	// Version of the add-on, shown as origin/software version in HA.
-	Version = "1.0.1"
+	Version = "1.0.2"
 
 	discoveryPrefix = "homeassistant"
 	// REBRAND: if you fork this under a different GitHub owner/repo name,
@@ -46,6 +46,11 @@ type Bridge struct {
 	// entities and thermostat) are excluded and, if previously published,
 	// removed. nil means "expose every detected zone" (default behaviour).
 	ActiveZones map[int]bool
+	// Diagnostics, when false (the default), removes all diagnostic entities
+	// (raw codes, alarms, outputs, ...) instead of publishing them, keeping
+	// the device pages clean. Set true to expose them (created disabled, so
+	// the user can enable individual ones).
+	Diagnostics bool
 }
 
 // New creates a Bridge for the given system. names may be nil.
@@ -84,41 +89,21 @@ func (b *Bridge) nameOr(key, def string) string {
 	return def
 }
 
-// elementOf returns the element a parameter belongs to ("Z1", "C1", "S1",
-// "HP0", "EM1", "OT_G0", "HPC"), or "" for system-level parameters that live
-// on the main device.
+// elementOf returns the zone a parameter belongs to ("Z1", "Z2", ...) so each
+// zone becomes its own Home Assistant device. Every other parameter (globals,
+// ACS, circuits, sources, heat pumps, controller, meters, ...) returns "" and
+// stays on the main device.
 func elementOf(key string) string {
-	if strings.HasPrefix(key, "HPC_") {
-		return "HPC"
-	}
-	// Domestic hot water gets its own device. It mixes "ACS_*" element params
-	// with a few ACS-related globals; heat-pump/source "*_TACS" temps are
-	// matched by leadRe below and stay on their own device.
-	if strings.HasPrefix(key, "ACS_") ||
-		key == "GLOBAL_ACS_ENABLE" || key == "GLOBAL_T_ACS" || key == "GLOBAL_SET_ACS" {
-		return "ACS"
-	}
 	m := leadRe.FindStringSubmatch(key)
-	if m == nil {
+	if m == nil || m[1] != "Z" {
 		return ""
 	}
-	switch m[1] {
-	case "Z", "C", "S", "HP", "EM", "OT_G":
-		return m[1] + m[2]
-	}
-	return ""
+	return "Z" + m[2]
 }
 
-// elementLead returns the default English lead of an element ("Zone 1",
-// "Heat pump controller", ...), used both as the default device name and as
-// the prefix stripped from entity labels.
+// elementLead returns the default English lead of a zone ("Zone 1", ...), used
+// both as the default device name and as the prefix stripped from entity labels.
 func elementLead(elem string) string {
-	if elem == "HPC" {
-		return "Heat pump controller"
-	}
-	if elem == "ACS" {
-		return "ACS"
-	}
 	m := leadRe.FindStringSubmatch(elem)
 	if m == nil {
 		return elem
@@ -128,12 +113,6 @@ func elementLead(elem string) string {
 
 // elementModel returns the device model shown in Home Assistant.
 func elementModel(elem string) string {
-	if elem == "HPC" {
-		return "Heat pump controller"
-	}
-	if elem == "ACS" {
-		return "Domestic hot water"
-	}
 	m := leadRe.FindStringSubmatch(elem)
 	if m == nil {
 		return ""
@@ -262,9 +241,16 @@ func (b *Bridge) DeviceConfigs(params models.ParamsMap, responseMap map[string]s
 			continue // excluded zones are removed as whole sub-devices below
 		}
 		cmp := b.component(key, attr, b.entityLabel(key, attr, elementOf(key)))
-		if cmp != nil {
-			group(elementOf(key)).components[key] = cmp
+		if cmp == nil {
+			continue
 		}
+		// When diagnostics are disabled, publish an empty config for diagnostic
+		// entities so Home Assistant removes any previously-created ones and
+		// does not re-create them.
+		if !b.Diagnostics && cmp["entity_category"] == "diagnostic" {
+			cmp = map[string]any{"platform": attr.EntityType}
+		}
+		group(elementOf(key)).components[key] = cmp
 	}
 
 	// Self-update entity lives on the main device.
@@ -500,9 +486,11 @@ func (b *Bridge) climateComponent(zone int, season helpers.Season, withHumidity 
 	c := map[string]any{
 		"platform":  "climate",
 		"unique_id": fmt.Sprintf("%s_zone_%d", b.SystemID, zone),
-		// name is null: the thermostat is the main entity of the zone device,
-		// so Home Assistant shows it with the device name (e.g. "Soggiorno").
-		"name": nil,
+		// A normal entity label (not the device's main entity): Home Assistant
+		// shows it as "<zone> Thermostat" and it decouples cleanly from the
+		// device name, so renaming/regenerating IDs behaves like any other
+		// entity.
+		"name": "Thermostat",
 
 		"current_temperature_topic":    b.StateTopic(z + "_TEMP"),
 		"current_temperature_template": scaleDown,
@@ -527,15 +515,9 @@ func (b *Bridge) climateComponent(zone int, season helpers.Season, withHumidity 
 		"action_template": fmt.Sprintf(
 			`{%% if value == "1" %%}%s{%% else %%}idle{%% endif %%}`, action),
 
-		// Presets map to Home Assistant's standard constants so the frontend
-		// translates them automatically: "eco" = REG economy forcing (2),
-		// "comfort" = comfort forcing (3), "none" = automatic (0). The
-		// forced-off state is represented by the HVAC "off" mode, not a preset.
-		"preset_modes":                 []string{"eco", "comfort"},
-		"preset_mode_command_topic":    b.CommandTopic(z + "_FORCING"),
-		"preset_mode_command_template": `{% if value == "eco" %}2{% elif value == "comfort" %}3{% else %}0{% endif %}`,
-		"preset_mode_state_topic":      b.StateTopic(z + "_FORCING"),
-		"preset_mode_value_template":   `{% if value == "2" %}eco{% elif value == "3" %}comfort{% else %}none{% endif %}`,
+		// No preset_modes: Amazon Alexa special-cases the "eco" preset and
+		// mis-reports the thermostat state (shows "eco" even when it is not).
+		// The economy/comfort forcing is exposed as a separate select instead.
 	}
 
 	// Single target temperature mapped to the comfort setpoint of the active

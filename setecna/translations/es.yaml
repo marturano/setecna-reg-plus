@@ -11,6 +11,10 @@ configuration:
   readonly:
     name: Modo de solo lectura
     description: Exponer solo los sensores, sin escribir nunca nada de vuelta al sistema Setecna.
+  diagnostics:
+    name: Exponer entidades de diagnóstico
+    description: >-
+      Si está activado, expone las entidades de diagnóstico (códigos en bruto, alarmas, salidas de placa, estado de bombas/controlador, ...) como entidades deshabilitadas que puede activar individualmente. Si está desactivado (predeterminado), no se crean.
   adv_int:
     name: Integración avanzada
     description: Crear entidades climate nativas de Home Assistant para cada zona activa (requiere el modo de solo lectura desactivado).

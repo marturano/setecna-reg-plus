@@ -17,7 +17,7 @@ Ce dépôt contient l'add-on Home Assistant qui intègre un système thermique *
 
 ## Fonctionnalités
 
-- **Un appareil Home Assistant par élément** (appareil principal *Setecna REG* plus un par zone, circuit, source, pompe à chaleur et ACS) : les entités sont regroupées et une zone entière peut être renommée depuis sa page d'appareil (nécessite Home Assistant **2024.11+**, validé jusqu'à **2026.7**).
+- **Un appareil Home Assistant par zone** (plus l'appareil principal *Setecna REG* qui regroupe globaux, ACS, circuits, sources, pompes à chaleur et régulateur) : une zone entière peut être renommée depuis sa page d'appareil (nécessite Home Assistant **2024.11+**, validé jusqu'à **2026.7**).
 - **Commandes principales** (si accessible en écriture) : **marche/arrêt** de l'installation, **saison** (hiver/été) et **marche/arrêt ACS**.
 - **Entités climate natives** (mode *Intégration avancée* facultatif) pour chaque zone active, avec `hvac_action` chauffage/refroidissement, une seule température cible (la consigne confort de la saison), des presets traduits (`eco`/`comfort`) et, si disponible, contrôle de l'humidité.
 - **Familles d'appareils supplémentaires** exposées en diagnostic lecture seule : unités de pompe à chaleur et régulateur de cascade, cascade de générateurs OpenTherm (si activée), sorties relais de la carte, alarmes système, point de rosée de zone, températures de retour et pompes des circuits, températures des sources et totaux d'énergie sur 32 bits. Les canaux indisponibles restent *inconnus* au lieu d'afficher des valeurs erronées.
