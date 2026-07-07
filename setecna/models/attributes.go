@@ -415,11 +415,12 @@ func (m ParamsMap) addZones(from map[string]string, static, read, write bool) {
 					ValueTemplate:     tplTemp16Sentinel,
 				}
 				m["Z"+fmt.Sprint(i)+"_ZONE_MODE"] = Attributes{
-					Name:          "Zone " + fmt.Sprint(i) + " mode",
-					EntityType:    "sensor",
-					DeviceClass:   "enum",
-					ValueTemplate: "{% if value == \"0\" %}off{% elif value == \"2\" %}economy{% elif value == \"3\" %}comfort{% elif value == \"4\" %}forced off{% elif value == \"6\" %}forced economy{% elif value == \"23\" %}forced comfort{% else %}{{ value }}{% endif %}",
-					Options:       []string{"off", "economy", "comfort", "forced off", "forced economy", "forced comfort"},
+					Name:           "Zone " + fmt.Sprint(i) + " regime",
+					EntityType:     "sensor",
+					DeviceClass:    "enum",
+					EntityCategory: "primary",
+					ValueTemplate:  "{% if value == \"2\" %}automatic economy{% elif value == \"3\" %}automatic comfort{% elif value == \"6\" %}forced economy{% elif value == \"23\" %}forced comfort{% else %}off{% endif %}",
+					Options:        []string{"automatic economy", "automatic comfort", "forced economy", "forced comfort", "off"},
 				}
 				m["Z"+fmt.Sprint(i)+"_ZONE_SET"] = Attributes{
 					Name:              "Zone " + fmt.Sprint(i) + " setpoint",
@@ -1120,6 +1121,7 @@ var labelSets = map[string]map[string]string{
 
 var (
 	zoneForcingRe = regexp.MustCompile(`^Z\d+_FORCING$`)
+	zoneRegimeRe  = regexp.MustCompile(`^Z\d+_ZONE_MODE$`)
 	calForcingRe  = regexp.MustCompile(`^MT\d+_FORCING$`)
 	calModeRe     = regexp.MustCompile(`^MT\d+_MODE$`)
 )
@@ -1153,6 +1155,16 @@ func (m ParamsMap) Localize(lang string) {
 			} else {
 				attr.ValueTemplate = fmt.Sprintf(`{%% if value == "0" %%}%s{%% elif value == "1" %%}%s{%% elif value == "2" %%}%s{%% elif value == "3" %%}%s{%% else %%}{{ value }}{%% endif %%}`, L["automatic"], L["off"], L["economy"], L["comfort"])
 			}
+			m[key] = attr
+
+		case zoneRegimeRe.MatchString(key):
+			// 2 auto-eco, 3 auto-comfort, 6 forced-eco, 23 forced-comfort, else off
+			ae := L["automatic"] + " " + L["economy"]
+			ac := L["automatic"] + " " + L["comfort"]
+			fe := L["forced_economy"]
+			fc := L["forced_comfort"]
+			attr.Options = []string{ae, ac, fe, fc, L["off"]}
+			attr.ValueTemplate = fmt.Sprintf(`{%% if value == "2" %%}%s{%% elif value == "3" %%}%s{%% elif value == "6" %%}%s{%% elif value == "23" %%}%s{%% else %%}%s{%% endif %%}`, ae, ac, fe, fc, L["off"])
 			m[key] = attr
 
 		case calForcingRe.MatchString(key):

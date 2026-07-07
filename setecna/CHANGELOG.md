@@ -1,5 +1,10 @@
 <!-- https://developers.home-assistant.io/docs/add-ons/presentation#keeping-a-changelog -->
 
+## 1.0.4
+
+### Changed
+- **Zone regime sensor is now visible.** Each zone's `ZONE_MODE` sensor (previously a hidden diagnostic) is now a primary "Zone N regime" sensor with clear states: `automatic economy`, `automatic comfort`, `forced economy`, `forced comfort`, `off`. It reflects both the forcing and the schedule-driven regime in one entity, and is localized by the `language` option. The forcing dropdown was already translatable via the `language` option (1.0.3).
+
 ## 1.0.3
 
 ### Added

@@ -24,7 +24,7 @@ import (
 
 const (
 	// Version of the add-on, shown as origin/software version in HA.
-	Version = "1.0.3"
+	Version = "1.0.4"
 
 	discoveryPrefix = "homeassistant"
 	// REBRAND: if you fork this under a different GitHub owner/repo name,
@@ -435,7 +435,9 @@ func (b *Bridge) component(key string, attr models.Attributes, name string) map[
 		// the main view and remain usable in the Energy dashboard; everything
 		// else (status/enum/raw codes, timestamps) is diagnostic. An explicit
 		// EntityCategory on the attribute always wins.
-		if attr.EntityCategory != "" {
+		if attr.EntityCategory == "primary" {
+			// primary: no entity_category, stays in the main view, enabled.
+		} else if attr.EntityCategory != "" {
 			base["entity_category"] = attr.EntityCategory
 		} else if !primarySensor[attr.DeviceClass] {
 			base["entity_category"] = "diagnostic"

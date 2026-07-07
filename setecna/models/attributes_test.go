@@ -149,7 +149,8 @@ func TestLocalize(t *testing.T) {
 		"Z3_FORCING": Attributes{EntityType: "select", Options: []string{"automatic", "off", "economy", "comfort"}},
 		"MT1_FORCING": Attributes{EntityType: "sensor", DeviceClass: "enum",
 			Options: []string{"automatic", "forced off", "forced economy", "forced comfort"}},
-		"MT1_MODE": Attributes{EntityType: "sensor", DeviceClass: "enum", Options: []string{"off", "economy", "comfort"}},
+		"MT1_MODE":     Attributes{EntityType: "sensor", DeviceClass: "enum", Options: []string{"off", "economy", "comfort"}},
+		"Z2_ZONE_MODE": Attributes{EntityType: "sensor", DeviceClass: "enum", EntityCategory: "primary", Options: []string{"automatic economy", "automatic comfort", "forced economy", "forced comfort", "off"}},
 	}
 	m.Localize("it")
 
@@ -168,6 +169,9 @@ func TestLocalize(t *testing.T) {
 	}
 	if got := m["MT1_MODE"].Options; got[0] != "spento" {
 		t.Fatalf("calendar mode options not localized: %v", got)
+	}
+	if got := m["Z2_ZONE_MODE"].Options; got[0] != "automatico economia" || got[4] != "spento" {
+		t.Fatalf("zone regime options not localized: %v", got)
 	}
 }
 
