@@ -1,6 +1,16 @@
 # HAFTUNGSAUSSCHLUSS
 
-Dieses Add-on wurde durch Reverse Engineering der Setecna-Weboberfläche entwickelt und wird vom Setecna-Team **nicht** offiziell unterstützt. Verwendung auf eigene Gefahr.
+Dies ist eine inoffizielle, von der Community entwickelte Integration. Sie steht **in keiner Weise in Verbindung mit SETECNA EPC Srl und wird von dieser weder unterstützt, empfohlen noch gefördert** - dem Anbieter des Setecna-REG-Systems und des Fernwartungsportals s5a.eu (www.s5a.eu).
+
+"Setecna", "Setecna REG", "s5a.eu" sowie zugehörige Namen oder Logos sind Marken bzw. Eigentum ihrer jeweiligen Inhaber und werden hier ausschliesslich zur Identifikation und Interoperabilität verwendet. Das Projekt wird unabhängig entwickelt, durch Reverse Engineering der öffentlich erreichbaren s5a.eu-Weboberfläche.
+
+**Keine Gewährleistung.** Die Software wird "wie besehen" bereitgestellt, ohne jegliche ausdrückliche oder stillschweigende Gewährleistung, einschliesslich Marktgängigkeit, Eignung für einen bestimmten Zweck, Richtigkeit oder Nichtverletzung von Rechten.
+
+**Haftungsbeschränkung.** Soweit gesetzlich zulässig, übernehmen die Autor(en) keine Haftung für Schäden, Verluste oder Kosten jeglicher Art - direkt, indirekt, beiläufig, speziell oder Folgeschäden - die aus der Nutzung oder Nichtnutzbarkeit dieser Integration entstehen. Dazu gehören ohne Einschränkung: Fehlfunktion, Beschädigung oder Verschleiss der Heiz-/Kühlanlage oder ihrer Komponenten; falsche, fehlende oder verzögerte Messwerte und Befehle; Komforteinbussen, Energieverschwendung oder höhere Kosten; Datenverlust; Unterbrechung oder Sperrung des s5a.eu-Dienstes oder Ihres Kontos.
+
+**Nutzung auf eigene Gefahr.** Die Integration kann Parameter des Setecna-REG-Systems lesen und, sofern aktiviert, **schreiben** (Sollwerte, Saison, Ein/Aus, Zwang, ...). Solche Schreibvorgänge verändern das tatsächliche Verhalten Ihrer Anlage. Sie allein sind für die Nutzung und für jede vorgenommene Änderung verantwortlich. Diese Integration ist **kein Sicherheitsgerät** und darf für keine sicherheitskritische Funktion herangezogen werden.
+
+**Bedingungen Dritter.** Sie sind dafür verantwortlich, dass Ihre Nutzung den Nutzungsbedingungen von SETECNA EPC Srl für das Setecna-REG-System und das s5a.eu-Portal entspricht. Der Zugang kann vom Anbieter jederzeit geändert oder entzogen werden, wodurch diese Integration nicht mehr funktionieren kann.
 
 # Home-Assistant-Add-on-Repository für Setecna REG
 

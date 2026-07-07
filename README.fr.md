@@ -1,6 +1,16 @@
 # AVERTISSEMENT
 
-Cet add-on est développé par rétro-ingénierie de l'interface web Setecna et n'est **pas** officiellement pris en charge par l'équipe Setecna. Utilisez-le à vos risques et périls.
+Il s'agit d'une intégration non officielle, développée par la communauté. Elle **n'est en aucune manière affiliée, approuvée, sponsorisée ni prise en charge par SETECNA EPC Srl**, fournisseur du système Setecna REG et du portail de télégestion s5a.eu (www.s5a.eu).
+
+« Setecna », « Setecna REG », « s5a.eu » ainsi que les noms ou logos associés sont des marques ou la propriété de leurs détenteurs respectifs, utilisés ici uniquement à des fins d'identification et d'interopérabilité. Ce projet est développé de manière indépendante, par rétro-ingénierie de l'interface web s5a.eu accessible publiquement.
+
+**Aucune garantie.** Le logiciel est fourni « en l'état », sans garantie d'aucune sorte, expresse ou implicite, y compris la qualité marchande, l'adéquation à un usage particulier, l'exactitude ou l'absence de contrefaçon.
+
+**Limitation de responsabilité.** Dans la mesure maximale permise par la loi, le ou les auteurs déclinent toute responsabilité pour tout dommage, perte ou coût de quelque nature que ce soit - direct, indirect, accessoire, spécial ou consécutif - découlant de l'utilisation ou de l'impossibilité d'utiliser cette intégration. Cela inclut notamment : dysfonctionnement, dommage ou usure de l'installation de chauffage/refroidissement ou de ses composants ; lectures ou commandes erronées, manquantes ou retardées ; perte de confort, gaspillage d'énergie ou surcoûts ; perte de données ; interruption ou suspension du service s5a.eu ou de votre compte.
+
+**Utilisation à vos risques.** L'intégration peut lire et, si activé, **écrire** des paramètres sur votre système Setecna REG (consignes, saison, marche/arrêt, forçages, ...). Ces écritures modifient le comportement réel de votre installation. Vous êtes seul responsable de son utilisation et de toute modification apportée à votre système. Cette intégration **n'est pas un dispositif de sécurité** et ne doit être utilisée pour aucune fonction critique de sécurité.
+
+**Conditions des tiers.** Il vous incombe de veiller à ce que votre utilisation respecte les conditions de service de SETECNA EPC Srl relatives au système Setecna REG et au portail s5a.eu. L'accès peut être modifié ou retiré par le fournisseur à tout moment, ce qui peut empêcher le fonctionnement de cette intégration.
 
 # Dépôt de l'add-on Home Assistant pour Setecna REG
 

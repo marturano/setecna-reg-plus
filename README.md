@@ -1,6 +1,16 @@
 # DISCLAIMER
 
-This add-on is developed by reverse engineering the Setecna web interface and is **not** officially supported by the Setecna team. Use it at your own risk.
+This is an unofficial, community-developed integration. It is **not affiliated with, endorsed by, sponsored by, or supported in any way by SETECNA EPC Srl**, the provider of the Setecna REG system and of the s5a.eu (www.s5a.eu) remote-management portal.
+
+"Setecna", "Setecna REG", "s5a.eu" and any related names or logos are trademarks or property of their respective owners, used here solely for identification and interoperability. This project is developed independently, by reverse-engineering the publicly reachable s5a.eu web interface.
+
+**No warranty.** The software is provided "as is", without warranty of any kind, express or implied, including but not limited to merchantability, fitness for a particular purpose, accuracy or non-infringement.
+
+**Limitation of liability.** To the maximum extent permitted by law, the author(s) accept no liability for any damage, loss or cost of any kind - direct, indirect, incidental, special or consequential - arising from the use of, or inability to use, this integration. This includes, without limitation: malfunction, damage or wear of the heating/cooling plant or its components; incorrect, missing or delayed readings and commands; loss of comfort, energy waste or increased costs; data loss; interruption or suspension of the s5a.eu service or of your account.
+
+**Use at your own risk.** The integration can read and, when enabled, **write** parameters to your Setecna REG system (setpoints, season, on/off, forcing, ...). Such writes change the actual behaviour of your plant. You are solely responsible for how you use it and for any change it makes to your system. This integration is **not a safety device** and must not be relied upon for any safety-critical function.
+
+**Third-party terms.** You are responsible for ensuring your use complies with SETECNA EPC Srl's terms of service for the Setecna REG system and the s5a.eu portal. Access may be changed or withdrawn by the provider at any time, which may stop this integration from working.
 
 # Home Assistant Setecna REG add-on repository
 

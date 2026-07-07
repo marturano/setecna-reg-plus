@@ -1,6 +1,16 @@
 # AVISO
 
-Este add-on está desarrollado mediante ingeniería inversa de la interfaz web de Setecna y **no** cuenta con soporte oficial del equipo de Setecna. Úselo bajo su propia responsabilidad.
+Esta es una integración no oficial, desarrollada por la comunidad. **No está afiliada, respaldada, patrocinada ni cuenta con soporte de ninguna manera por parte de SETECNA EPC Srl**, proveedora del sistema Setecna REG y del portal de telegestión s5a.eu (www.s5a.eu).
+
+«Setecna», «Setecna REG», «s5a.eu» y cualquier nombre o logotipo relacionado son marcas o propiedad de sus respectivos titulares, utilizados aquí únicamente con fines de identificación e interoperabilidad. Este proyecto se desarrolla de forma independiente, mediante ingeniería inversa de la interfaz web de s5a.eu accesible públicamente.
+
+**Sin garantía.** El software se proporciona «tal cual», sin garantía de ningún tipo, expresa o implícita, incluidas la comerciabilidad, la idoneidad para un fin determinado, la exactitud o la no infracción.
+
+**Limitación de responsabilidad.** En la máxima medida permitida por la ley, el autor o los autores no asumen responsabilidad alguna por daños, pérdidas o costes de cualquier tipo - directos, indirectos, incidentales, especiales o consecuentes - derivados del uso o de la imposibilidad de usar esta integración. Esto incluye, sin limitación: mal funcionamiento, daño o desgaste de la instalación de calefacción/refrigeración o de sus componentes; lecturas o comandos erróneos, ausentes o retardados; pérdida de confort, desperdicio de energía o mayores costes; pérdida de datos; interrupción o suspensión del servicio s5a.eu o de su cuenta.
+
+**Uso bajo su propia responsabilidad.** La integración puede leer y, si se habilita, **escribir** parámetros en su sistema Setecna REG (consignas, temporada, encendido/apagado, forzados, ...). Dichas escrituras modifican el comportamiento real de su instalación. Usted es el único responsable del uso que haga y de cualquier cambio que produzca en su sistema. Esta integración **no es un dispositivo de seguridad** y no debe utilizarse para ninguna función crítica de seguridad.
+
+**Condiciones de terceros.** Es su responsabilidad asegurarse de que su uso cumpla los términos de servicio de SETECNA EPC Srl relativos al sistema Setecna REG y al portal s5a.eu. El proveedor puede cambiar o retirar el acceso en cualquier momento, lo que puede impedir el funcionamiento de esta integración.
 
 # Repositorio del add-on de Home Assistant para Setecna REG
 
