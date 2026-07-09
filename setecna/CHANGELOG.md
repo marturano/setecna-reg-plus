@@ -1,9 +1,16 @@
 <!-- https://developers.home-assistant.io/docs/add-ons/presentation#keeping-a-changelog -->
 
-## 1.0.5
+## 1.0.6
+
+### Added
+- **Per-zone calendar sensor.** Each zone now has a "Zone N calendar" sensor showing which weekly schedule (Orologio) the zone follows (day/night/bathrooms, etc.). The associated clock is decoded from bits 4-6 of the zone's `CFG1` register and named from your `MT<n>` `entity_names` override, falling back to "Calendar N". It updates automatically if a zone is reassigned to another schedule.
+- **Full debug logging option** (`debug`, default off). When on, the add-on logs every fetched parameter and every MQTT message it publishes. For troubleshooting/support purposes only - it is very verbose; leave it off for normal use.
 
 ### Changed
-- **Zone regime sensor is now visible.** Each zone's `ZONE_MODE` (previously a hidden diagnostic) is now a primary "Zone N regime" sensor with clear states: `automatic economy`, `automatic comfort`, `forced economy`, `forced comfort`, `off`. `ZONE_MODE` is decoded as a bitfield (bit4 = regime engaged, bit2 = forced, bit0 = comfort; the heat-demand bit is ignored so an idle zone keeps its regime), so it reports correctly in every state. It is localized by the `language` option. The forcing dropdown was already translatable via `language` (1.0.3).
+- **Zone regime sensor.** Each zone has a primary "Zone N regime" sensor with clear states: `automatic`, `automatic economy`, `automatic comfort`, `forced economy`, `forced comfort`, `off`. It is derived from the zone's `FORCING` register, which on this controller encodes both the manual forcing and the schedule-driven regime (the raw `ZONE_MODE` reads 0 for both automatic states, so it cannot tell economy from comfort and is kept only as a hidden diagnostic). Localized by the `language` option.
+
+### Fixed
+- **Outside temperature fixed for winter / missing controller probe.** Temperatures that can go below zero (the heat-pump outside probe `HP<n>_TEXT`, the dewpoint, and the controller external input) are now decoded as **signed** 16-bit values, so sub-zero readings (e.g. -2.0 °C) show correctly instead of being blanked. The controller's own `GLOBAL_T_EXT` is now created only when it carries a real reading: on systems where that input is not wired it read a sentinel and showed garbage (~3276.9 °C) or, after the sentinel fix, disappeared. On those systems the real outside temperature is the heat-pump probe ("Heat pump N outside temperature").
 
 ## 1.0.3
 
@@ -13,7 +20,6 @@
 - **Dropdown labels language option** (`language`, default English). Localizes the options of the dropdown/enum entities that Home Assistant cannot translate on its own - Season, zone forcing, calendar preset and calendar mode - into English, Italian, German, French or Spanish. Entity names remain in English.
 
 ### Fixed
-- **Outside temperature fixed for winter / missing controller probe.** Temperatures that can go below zero (the heat-pump outside probe `HP<n>_TEXT`, the dewpoint, and the controller external input) are now decoded as **signed** 16-bit values, so sub-zero readings (e.g. -2.0 °C) show correctly instead of being blanked. The controller's own `GLOBAL_T_EXT` is now created only when it carries a real reading: on systems where that input is not wired it read a sentinel and showed garbage (~3276.9 °C) or, after the sentinel fix, disappeared. On those systems the real outside temperature is the heat-pump probe ("Heat pump N outside temperature").
 - **Temperature sensors no longer show garbage values.** Read-only temperature sensors that did not filter the controller's 16-bit "not available" sentinel showed it as `3276.9 °C` (32769 / 10) when a probe was missing/invalid - the ACS temperature was the visible case. All read-only temperature sensors now blank out (become "unknown") on the 16-bit sentinels. Writable setpoints are unaffected. The filter deliberately keeps `255` (= 25.5 °C), which is a valid reading on these 16-bit channels (e.g. outside temperature).
 - **Stale sub-devices removed from MQTT.** After the "zones only" change (1.0.2), the entities of ACS, circuits, sources, heat pumps, the cascade controller and meters moved to the main *Setecna REG* device, but their old per-element discovery configs stayed on the broker as retained messages, so Home Assistant kept showing empty sub-devices. The add-on now publishes empty retained configs for those merged sub-devices to remove them automatically.
 

@@ -24,7 +24,7 @@ import (
 
 const (
 	// Version of the add-on, shown as origin/software version in HA.
-	Version = "1.0.5"
+	Version = "1.0.6"
 
 	discoveryPrefix = "homeassistant"
 	// REBRAND: if you fork this under a different GitHub owner/repo name,
@@ -614,6 +614,49 @@ func (b *Bridge) StateMessages(resp scraper.Response, params models.ParamsMap) m
 		msgs = append(msgs, mqtt.Message{
 			Topic:   b.StateTopic(d.ID),
 			Payload: payload,
+			Qos:     0,
+			Retain:  true,
+		})
+	}
+	return msgs
+}
+
+// calendarName resolves the display name for clock/calendar number n, reusing
+// the user's "MT<n>" name override when present, otherwise "Calendar <n>".
+func (b *Bridge) calendarName(n int) string {
+	if b.Names != nil {
+		if v, ok := b.Names["MT"+strconv.Itoa(n)]; ok && v != "" {
+			return v
+		}
+	}
+	return "Calendar " + strconv.Itoa(n)
+}
+
+// CalendarStateMessages publishes, for each active zone, the name of the clock
+// (Orologio / calendar) the zone follows. The clock index is encoded in bits
+// 4-6 of Z<n>_CFG1, with bit 7 marking that a clock is associated; the result
+// is cross-checked against the clock being active (MT<n>_XREF != 0). The value
+// is a plain string on the zone's own Z<n>_CALENDAR topic.
+func (b *Bridge) CalendarStateMessages(from map[string]string) mqtt.Messages {
+	var msgs mqtt.Messages
+	for i := 1; i <= 32; i++ {
+		zk := "Z" + strconv.Itoa(i)
+		if sc := from[zk+"_SENSOR_CHN"]; sc == "" || sc == "0" {
+			continue
+		}
+		if b.zoneExcluded(i) {
+			continue
+		}
+		value := "—"
+		if cfg1, err := strconv.Atoi(from[zk+"_CFG1"]); err == nil && (cfg1>>7)&1 == 1 {
+			n := ((cfg1 >> 4) & 0x7) + 1
+			if xref := from["MT"+strconv.Itoa(n)+"_XREF"]; xref != "" && xref != "0" {
+				value = b.calendarName(n)
+			}
+		}
+		msgs = append(msgs, mqtt.Message{
+			Topic:   b.StateTopic(zk + "_CALENDAR"),
+			Payload: value,
 			Qos:     0,
 			Retain:  true,
 		})

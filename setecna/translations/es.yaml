@@ -37,6 +37,9 @@ configuration:
   cleanup_legacy:
     name: Limpiar entidades v1.x
     description: Al iniciar, eliminar los topics de descubrimiento MQTT por entidad creados por las versiones 1.x del add-on.
+  debug:
+    name: Registro de depuración completo
+    description: Registra todos los parámetros leídos y cada mensaje MQTT. Solo con fines de soporte/diagnóstico; déjelo desactivado para el uso normal.
   poll_interval:
     name: Intervalo de sondeo
     description: Segundos entre las actualizaciones de datos desde la nube de Setecna (10-600).

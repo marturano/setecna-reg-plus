@@ -447,6 +447,16 @@ func (m ParamsMap) addZones(from map[string]string, static, read, write bool) {
 					ValueTemplate:  "{% if value == \"2\" %}forced economy{% elif value == \"3\" %}forced comfort{% elif value == \"50\" %}automatic economy{% elif value == \"51\" %}automatic comfort{% elif value in [\"1\", \"48\", \"49\"] %}off{% else %}automatic{% endif %}",
 					Options:        []string{"automatic", "automatic economy", "automatic comfort", "forced economy", "forced comfort", "off"},
 				}
+				// Associated clock (Orologio / calendar). The clock index is
+				// encoded in bits 4-6 of Z<n>_CFG1 (bit 7 = "clock associated").
+				// The human name (giorno/notte/bagni) is resolved and published
+				// by the bridge (see CalendarStateMessages), so this is a plain
+				// text sensor reading its own dedicated topic.
+				m["Z"+fmt.Sprint(i)+"_CALENDAR"] = Attributes{
+					Name:           "Zone " + fmt.Sprint(i) + " calendar",
+					EntityType:     "sensor",
+					EntityCategory: "primary",
+				}
 				// Raw ZONE_MODE kept as a hidden diagnostic (its encoding cannot
 				// tell automatic economy from comfort - both read 0 - so FORCING
 				// is used for the regime above).

@@ -42,6 +42,7 @@ type appConfig struct {
 	seasonControl bool
 	acsControl    bool
 	cleanupLegacy bool
+	debug         bool
 	pollInterval  time.Duration
 	names         map[string]string
 	activeZones   map[int]bool
@@ -110,6 +111,7 @@ func loadConfig() (appConfig, error) {
 	cfg.seasonControl = envBool("SEASON_CONTROL", true)
 	cfg.acsControl = envBool("ACS_CONTROL", true)
 	cfg.cleanupLegacy = envBool("CLEANUP_LEGACY", true)
+	cfg.debug = envBool("DEBUG", false)
 
 	seconds, err := strconv.Atoi(envOr("POLL_INTERVAL", "30"))
 	if err != nil || seconds < 10 {
@@ -137,6 +139,29 @@ func envBool(key string, def bool) bool {
 	return v
 }
 
+// dumpParams logs every raw parameter fetched from Setecna (sorted). Only used
+// when the debug option is enabled.
+func dumpParams(from map[string]string) {
+	keys := make([]string, 0, len(from))
+	for k := range from {
+		keys = append(keys, k)
+	}
+	sort.Strings(keys)
+	for _, k := range keys {
+		slog.Debug("param", "key", k, "value", from[k])
+	}
+	slog.Info("debug: dumped all Setecna parameters", "count", len(keys))
+}
+
+// dumpMessages logs every MQTT message in a batch (topic and payload). Only used
+// when the debug option is enabled.
+func dumpMessages(tag string, msgs mqtt.Messages) {
+	for _, m := range msgs {
+		slog.Debug("mqtt publish", "batch", tag, "topic", m.Topic, "retain", m.Retain, "payload", m.Payload)
+	}
+	slog.Info("debug: published MQTT batch", "batch", tag, "count", len(msgs))
+}
+
 func main() {
 	slog.SetDefault(slog.New(slog.NewTextHandler(os.Stdout, nil)))
 	slog.Info("starting Setecna add-on", "version", discovery.Version)
@@ -145,6 +170,11 @@ func main() {
 	if err != nil {
 		slog.Error("invalid configuration", "error", err)
 		os.Exit(1)
+	}
+
+	if cfg.debug {
+		slog.SetDefault(slog.New(slog.NewTextHandler(os.Stdout, &slog.HandlerOptions{Level: slog.LevelDebug})))
+		slog.Warn("full debug logging is ENABLED - this is verbose and only meant for troubleshooting; turn the 'debug' option off for normal use")
 	}
 
 	ctx, stop := signal.NotifyContext(context.Background(), syscall.SIGINT, syscall.SIGTERM)
@@ -194,23 +224,8 @@ func run(ctx context.Context, cfg appConfig) error {
 	params.AddEnabledParams(responseMap, cfg.readonly)
 	params.Localize(cfg.language)
 
-	// TEMP DEBUG: dump the calendar (Orologio) parameters and all active-zone
-	// parameters so we can decode the zone<->clock association. Remove once the
-	// calendar sensor is implemented.
-	{
-		var dbg []string
-		for k, v := range responseMap {
-			keep := strings.Contains(k, "XREF") || strings.HasPrefix(k, "MT")
-			// active zones Z1_.. through Z6_..
-			if len(k) >= 3 && k[0] == 'Z' && k[1] >= '1' && k[1] <= '6' && k[2] == '_' {
-				keep = true
-			}
-			if keep {
-				dbg = append(dbg, k+"="+v)
-			}
-		}
-		sort.Strings(dbg)
-		slog.Info("DEBUG zone/calendar params (paste this line back)", "values", strings.Join(dbg, " "))
+	if cfg.debug {
+		dumpParams(responseMap)
 	}
 
 	advClimate := cfg.advInt && !cfg.readonly
@@ -234,6 +249,7 @@ func run(ctx context.Context, cfg appConfig) error {
 		configMsgs, err := bridge.DeviceConfigs(params, responseMap, advClimate)
 		mergeCleanup := bridge.MergedSubdeviceCleanup(params)
 		stateMsgs := bridge.StateMessages(snapshot, params)
+		calMsgs := bridge.CalendarStateMessages(responseMap)
 		upMsg := bridge.UpdateStateMessage(latestRelease, latestReleaseURL)
 		stateMu.Unlock()
 
@@ -250,7 +266,13 @@ func run(ctx context.Context, cfg appConfig) error {
 		}
 		c.BatchPublish(configMsgs)
 		c.BatchPublish(stateMsgs)
+		c.BatchPublish(calMsgs)
 		c.Publish(upMsg)
+		if cfg.debug {
+			dumpMessages("config", configMsgs)
+			dumpMessages("state", stateMsgs)
+			dumpMessages("calendar", calMsgs)
+		}
 		slog.Info("discovery and state published", "entities", len(params), "devices", len(configMsgs))
 	}
 
@@ -316,7 +338,8 @@ func run(ctx context.Context, cfg appConfig) error {
 		}
 		failures = 0
 
-		client.BatchPublish(bridge.StateMessages(resp, params))
+		stateMsgs := bridge.StateMessages(resp, params)
+		client.BatchPublish(stateMsgs)
 
 		// If the system switched between winter and summer, the climate
 		// entities must be rebuilt with the seasonal setpoint topics.
@@ -324,6 +347,7 @@ func run(ctx context.Context, cfg appConfig) error {
 		for _, d := range resp.Data {
 			responseMap[d.ID] = string(d.V)
 		}
+		calMsgs := bridge.CalendarStateMessages(responseMap)
 		season := responseMap["GLOBAL_SEASON"]
 		seasonChanged := season != currentSeason && advClimate
 		if seasonChanged {
@@ -331,6 +355,11 @@ func run(ctx context.Context, cfg appConfig) error {
 			snapshot = resp
 		}
 		stateMu.Unlock()
+		client.BatchPublish(calMsgs)
+		if cfg.debug {
+			dumpMessages("state", stateMsgs)
+			dumpMessages("calendar", calMsgs)
+		}
 		if seasonChanged {
 			slog.Info("season changed, republishing climate discovery", "season", season)
 			publishAll(client)

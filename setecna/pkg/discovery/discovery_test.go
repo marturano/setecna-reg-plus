@@ -628,3 +628,63 @@ func TestRegimeReadsForcingTopic(t *testing.T) {
 		t.Fatalf("regime unique_id = %v", c["unique_id"])
 	}
 }
+
+func TestCalendarStateMessages(t *testing.T) {
+	// Real values from a live REG system:
+	//   giorno -> zones 1,3,4 (CFG1=143 -> clock 1)
+	//   notte  -> zones 2,5   (CFG1=159 -> clock 2)
+	//   bagni  -> zone 6      (CFG1=173 -> clock 3)
+	from := map[string]string{
+		"Z1_SENSOR_CHN": "57088", "Z1_CFG1": "143",
+		"Z2_SENSOR_CHN": "257", "Z2_CFG1": "159",
+		"Z3_SENSOR_CHN": "258", "Z3_CFG1": "143",
+		"Z4_SENSOR_CHN": "259", "Z4_CFG1": "143",
+		"Z5_SENSOR_CHN": "260", "Z5_CFG1": "159",
+		"Z6_SENSOR_CHN": "261", "Z6_CFG1": "173",
+		"MT1_XREF": "129", "MT2_XREF": "129", "MT3_XREF": "129",
+	}
+	b := New("SYS1", map[string]string{"MT1": "giorno", "MT2": "notte", "MT3": "bagni"})
+	got := map[string]string{}
+	for _, m := range b.CalendarStateMessages(from) {
+		got[m.Topic] = m.Payload
+	}
+	want := map[string]string{
+		"setecna/SYS1/Z1_CALENDAR": "giorno",
+		"setecna/SYS1/Z2_CALENDAR": "notte",
+		"setecna/SYS1/Z3_CALENDAR": "giorno",
+		"setecna/SYS1/Z4_CALENDAR": "giorno",
+		"setecna/SYS1/Z5_CALENDAR": "notte",
+		"setecna/SYS1/Z6_CALENDAR": "bagni",
+	}
+	for topic, val := range want {
+		if got[topic] != val {
+			t.Errorf("%s = %q, want %q", topic, got[topic], val)
+		}
+	}
+	if len(got) != len(want) {
+		t.Errorf("got %d messages, want %d: %v", len(got), len(want), got)
+	}
+}
+
+func TestCalendarFallbackName(t *testing.T) {
+	// No MT rename -> "Calendar N"; inactive clock -> em dash.
+	from := map[string]string{
+		"Z1_SENSOR_CHN": "1", "Z1_CFG1": "143", "MT1_XREF": "129", // clock 1 active
+		"Z2_SENSOR_CHN": "1", "Z2_CFG1": "159", "MT2_XREF": "0", // clock 2 inactive
+		"Z3_SENSOR_CHN": "1", "Z3_CFG1": "15", // bit7=0 -> not associated
+	}
+	b := New("SYS1", nil)
+	got := map[string]string{}
+	for _, m := range b.CalendarStateMessages(from) {
+		got[m.Topic] = m.Payload
+	}
+	if got["setecna/SYS1/Z1_CALENDAR"] != "Calendar 1" {
+		t.Errorf("Z1 = %q, want %q", got["setecna/SYS1/Z1_CALENDAR"], "Calendar 1")
+	}
+	if got["setecna/SYS1/Z2_CALENDAR"] != "—" {
+		t.Errorf("Z2 (inactive clock) = %q, want em dash", got["setecna/SYS1/Z2_CALENDAR"])
+	}
+	if got["setecna/SYS1/Z3_CALENDAR"] != "—" {
+		t.Errorf("Z3 (not associated) = %q, want em dash", got["setecna/SYS1/Z3_CALENDAR"])
+	}
+}
