@@ -427,10 +427,15 @@ func (b *Bridge) component(key string, attr models.Attributes, name string) map[
 	if attr.WriteKey != "" {
 		cmdKey = attr.WriteKey
 	}
+	// State param may differ too, for derived sensors (see Attributes.StateKey).
+	stateKey := key
+	if attr.StateKey != "" {
+		stateKey = attr.StateKey
+	}
 
 	switch attr.EntityType {
 	case "sensor":
-		base["state_topic"] = b.StateTopic(key)
+		base["state_topic"] = b.StateTopic(stateKey)
 		// Primary measurements (temperature, humidity, power, energy) stay in
 		// the main view and remain usable in the Energy dashboard; everything
 		// else (status/enum/raw codes, timestamps) is diagnostic. An explicit

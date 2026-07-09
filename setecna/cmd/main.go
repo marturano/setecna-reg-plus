@@ -11,6 +11,7 @@ import (
 	"net/http"
 	"os"
 	"os/signal"
+	"sort"
 	"strconv"
 	"strings"
 	"sync"
@@ -192,6 +193,20 @@ func run(ctx context.Context, cfg appConfig) error {
 	params := make(models.ParamsMap)
 	params.AddEnabledParams(responseMap, cfg.readonly)
 	params.Localize(cfg.language)
+
+	// TEMP DEBUG: dump the calendar (Orologio) parameters so we can decode the
+	// zone<->clock cross-reference encoding. Remove once the calendar sensor is
+	// implemented.
+	{
+		var dbg []string
+		for k, v := range responseMap {
+			if strings.Contains(k, "XREF") || strings.HasPrefix(k, "MT") {
+				dbg = append(dbg, k+"="+v)
+			}
+		}
+		sort.Strings(dbg)
+		slog.Info("DEBUG calendar params (paste this line back)", "values", strings.Join(dbg, " "))
+	}
 
 	advClimate := cfg.advInt && !cfg.readonly
 	currentSeason := responseMap["GLOBAL_SEASON"]

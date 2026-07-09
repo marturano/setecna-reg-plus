@@ -149,8 +149,8 @@ func TestLocalize(t *testing.T) {
 		"Z3_FORCING": Attributes{EntityType: "select", Options: []string{"automatic", "off", "economy", "comfort"}},
 		"MT1_FORCING": Attributes{EntityType: "sensor", DeviceClass: "enum",
 			Options: []string{"automatic", "forced off", "forced economy", "forced comfort"}},
-		"MT1_MODE":     Attributes{EntityType: "sensor", DeviceClass: "enum", Options: []string{"off", "economy", "comfort"}},
-		"Z2_ZONE_MODE": Attributes{EntityType: "sensor", DeviceClass: "enum", EntityCategory: "primary", Options: []string{"automatic economy", "automatic comfort", "forced economy", "forced comfort", "off"}},
+		"MT1_MODE":  Attributes{EntityType: "sensor", DeviceClass: "enum", Options: []string{"off", "economy", "comfort"}},
+		"Z2_REGIME": Attributes{EntityType: "sensor", DeviceClass: "enum", EntityCategory: "primary", StateKey: "Z2_FORCING", Options: []string{"automatic", "automatic economy", "automatic comfort", "forced economy", "forced comfort", "off"}},
 	}
 	m.Localize("it")
 
@@ -170,7 +170,7 @@ func TestLocalize(t *testing.T) {
 	if got := m["MT1_MODE"].Options; got[0] != "spento" {
 		t.Fatalf("calendar mode options not localized: %v", got)
 	}
-	if got := m["Z2_ZONE_MODE"].Options; got[0] != "automatico economia" || got[4] != "spento" {
+	if got := m["Z2_REGIME"].Options; got[1] != "automatico economia" || got[5] != "spento" {
 		t.Fatalf("zone regime options not localized: %v", got)
 	}
 }
@@ -181,5 +181,37 @@ func TestLocalizeEnglishNoop(t *testing.T) {
 	m.Localize("en")
 	if m["GLOBAL_SEASON"].Options[0] != "winter" {
 		t.Fatal("english must be a no-op")
+	}
+}
+
+// TestZoneRegimeBitfield documents the ZONE_MODE bit decoding against the raw
+// values observed on a live plant (50/51/54/55/4/18).
+func TestZoneRegimeBitfield(t *testing.T) {
+	// (v//16)%2 engaged, (v//4)%2 forced, v%2 comfort.
+	decode := func(v int) string {
+		if (v/16)%2 == 0 {
+			return "off"
+		}
+		forced := (v/4)%2 == 1
+		comfort := v%2 == 1
+		p := "automatic"
+		if forced {
+			p = "forced"
+		}
+		r := "economy"
+		if comfort {
+			r = "comfort"
+		}
+		return p + " " + r
+	}
+	cases := map[int]string{
+		50: "automatic economy", 51: "automatic comfort",
+		54: "forced economy", 55: "forced comfort",
+		4: "off", 18: "automatic economy", // 18 = idle auto economy
+	}
+	for v, want := range cases {
+		if got := decode(v); got != want {
+			t.Fatalf("ZONE_MODE %d = %q, want %q", v, got, want)
+		}
 	}
 }

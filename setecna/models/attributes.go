@@ -23,6 +23,11 @@ type Attributes struct {
 	// writes to their "P_GLOBAL_*" counterpart; the state topic keeps the
 	// read name so unique_id and history are unaffected.
 	WriteKey string `json:"write_key"`
+	// StateKey overrides the parameter whose topic the entity subscribes to.
+	// Used for derived sensors that read another parameter's value (e.g. the
+	// zone regime sensor reads the FORCING topic). The entity keeps its own
+	// unique_id from its map key.
+	StateKey string `json:"state_key"`
 }
 
 // Sentinel values used by the REG controller to signal "not available"
@@ -34,6 +39,12 @@ const (
 	// channels. Filters only the 16-bit "not available" sentinels; 255 is a
 	// valid reading here (25.5 °C), so it must NOT be blanked.
 	tplTemp16Sentinel = `{% set v = value | int %}{% if v not in [32768, 32769, 65280, 65535] %}{{ v / 10 }}{% endif %}`
+	// tplTempSigned: scaled temperature (value/10 °C) for channels that can go
+	// negative (external temperature, dewpoint). The value is a signed 16-bit
+	// integer, so values >= 32768 are negative (v - 65536). Only 32768/32769
+	// (-3276.8/-3276.7 °C, impossible) are treated as "not available"; the high
+	// unsigned range is valid negative temperatures (e.g. 65535 = -0.1 °C).
+	tplTempSigned = `{% set v = value | int %}{% if v not in [32768, 32769] %}{{ (v - 65536 if v >= 32768 else v) / 10 }}{% endif %}`
 	// tplRawSentinel: raw integer with sentinel filter (unit/scale unknown).
 	tplRawSentinel = `{% set v = value | int %}{% if v not in [255, 32768, 32769, 65280, 65535] %}{{ v }}{% endif %}`
 	// tplOnOff: boolean from "1"/other.
@@ -110,13 +121,22 @@ func (m ParamsMap) addGlobals(from map[string]string, static, read, write bool) 
 				ValueTemplate: "{% if value == \"1\" %}on{% else %}off{% endif %}",
 			}
 		}
-		m["GLOBAL_T_EXT"] = Attributes{
-			Name:              "Global external temperature",
-			EntityType:        "sensor",
-			DeviceClass:       "temperature",
-			UnitOfMeasurement: "°C",
-			StateClass:        "measurement",
-			ValueTemplate:     tplTemp16Sentinel,
+		// The controller's own external-temperature input is often not wired;
+		// in that case it reads a "not available" sentinel. Only expose it when
+		// it carries a real reading, otherwise the outside temperature comes
+		// from the heat pump probe (HP<n>_TEXT).
+		switch from["GLOBAL_T_EXT"] {
+		case "", "255", "32768", "32769", "65280", "65535":
+			// no valid controller external probe: skip
+		default:
+			m["GLOBAL_T_EXT"] = Attributes{
+				Name:              "Global external temperature",
+				EntityType:        "sensor",
+				DeviceClass:       "temperature",
+				UnitOfMeasurement: "°C",
+				StateClass:        "measurement",
+				ValueTemplate:     tplTempSigned,
+			}
 		}
 		if write {
 			// Writable season selector. The cloud accepts writes only on
@@ -151,7 +171,7 @@ func (m ParamsMap) addGlobals(from map[string]string, static, read, write bool) 
 			DeviceClass:       "temperature",
 			UnitOfMeasurement: "°C",
 			StateClass:        "measurement",
-			ValueTemplate:     tplTemp16Sentinel,
+			ValueTemplate:     tplTempSigned,
 		}
 	}
 	if read {
@@ -414,13 +434,26 @@ func (m ParamsMap) addZones(from map[string]string, static, read, write bool) {
 					StateClass:        "measurement",
 					ValueTemplate:     tplTemp16Sentinel,
 				}
-				m["Z"+fmt.Sprint(i)+"_ZONE_MODE"] = Attributes{
+				// Current regime, derived from FORCING (which encodes both the
+				// forcing and the schedule-driven regime on this controller):
+				// 1=off, 2=forced economy, 3=forced comfort, 0=automatic (idle),
+				// automatic active = 48 + regime (48/49=off, 50=economy, 51=comfort).
+				m["Z"+fmt.Sprint(i)+"_REGIME"] = Attributes{
 					Name:           "Zone " + fmt.Sprint(i) + " regime",
 					EntityType:     "sensor",
 					DeviceClass:    "enum",
 					EntityCategory: "primary",
-					ValueTemplate:  "{% if value == \"2\" %}automatic economy{% elif value == \"3\" %}automatic comfort{% elif value == \"6\" %}forced economy{% elif value == \"23\" %}forced comfort{% else %}off{% endif %}",
-					Options:        []string{"automatic economy", "automatic comfort", "forced economy", "forced comfort", "off"},
+					StateKey:       "Z" + fmt.Sprint(i) + "_FORCING",
+					ValueTemplate:  "{% if value == \"2\" %}forced economy{% elif value == \"3\" %}forced comfort{% elif value == \"50\" %}automatic economy{% elif value == \"51\" %}automatic comfort{% elif value in [\"1\", \"48\", \"49\"] %}off{% else %}automatic{% endif %}",
+					Options:        []string{"automatic", "automatic economy", "automatic comfort", "forced economy", "forced comfort", "off"},
+				}
+				// Raw ZONE_MODE kept as a hidden diagnostic (its encoding cannot
+				// tell automatic economy from comfort - both read 0 - so FORCING
+				// is used for the regime above).
+				m["Z"+fmt.Sprint(i)+"_ZONE_MODE"] = Attributes{
+					Name:          "Zone " + fmt.Sprint(i) + " mode (raw)",
+					EntityType:    "sensor",
+					ValueTemplate: tplRawSentinel,
 				}
 				m["Z"+fmt.Sprint(i)+"_ZONE_SET"] = Attributes{
 					Name:              "Zone " + fmt.Sprint(i) + " setpoint",
@@ -918,6 +951,18 @@ func (m ParamsMap) addHeatPumps(from map[string]string, static, read, write bool
 			ValueTemplate: tplRawSentinel,
 		}
 	}
+	// tempSigned is like temp but for channels that can go negative (the
+	// outside-temperature probe).
+	tempSigned := func(id, label string, i int) {
+		m[id] = Attributes{
+			Name:              "Heat pump " + fmt.Sprint(i) + " " + label,
+			EntityType:        "sensor",
+			DeviceClass:       "temperature",
+			UnitOfMeasurement: "°C",
+			StateClass:        "measurement",
+			ValueTemplate:     tplTempSigned,
+		}
+	}
 	for i := 0; i <= 4; i++ {
 		p := "HP" + fmt.Sprint(i)
 		trit := from[p+"_TRIT"]
@@ -928,7 +973,7 @@ func (m ParamsMap) addHeatPumps(from map[string]string, static, read, write bool
 			continue
 		}
 		temp(p+"_TRIT", "return temperature", i)
-		temp(p+"_TEXT", "outside temperature", i)
+		tempSigned(p+"_TEXT", "outside temperature", i)
 		temp(p+"_TMAND", "flow temperature", i)
 		temp(p+"_TACS", "ACS temperature", i)
 		// Raw fields: exact unit/encoding not yet reverse engineered.
@@ -1121,7 +1166,7 @@ var labelSets = map[string]map[string]string{
 
 var (
 	zoneForcingRe = regexp.MustCompile(`^Z\d+_FORCING$`)
-	zoneRegimeRe  = regexp.MustCompile(`^Z\d+_ZONE_MODE$`)
+	zoneRegimeRe  = regexp.MustCompile(`^Z\d+_REGIME$`)
 	calForcingRe  = regexp.MustCompile(`^MT\d+_FORCING$`)
 	calModeRe     = regexp.MustCompile(`^MT\d+_MODE$`)
 )
@@ -1158,13 +1203,15 @@ func (m ParamsMap) Localize(lang string) {
 			m[key] = attr
 
 		case zoneRegimeRe.MatchString(key):
-			// 2 auto-eco, 3 auto-comfort, 6 forced-eco, 23 forced-comfort, else off
+			// From FORCING: 2 forced-eco, 3 forced-comfort, 50 auto-eco,
+			// 51 auto-comfort, 1/48/49 off, else automatic.
+			au := L["automatic"]
 			ae := L["automatic"] + " " + L["economy"]
 			ac := L["automatic"] + " " + L["comfort"]
 			fe := L["forced_economy"]
 			fc := L["forced_comfort"]
-			attr.Options = []string{ae, ac, fe, fc, L["off"]}
-			attr.ValueTemplate = fmt.Sprintf(`{%% if value == "2" %%}%s{%% elif value == "3" %%}%s{%% elif value == "6" %%}%s{%% elif value == "23" %%}%s{%% else %%}%s{%% endif %%}`, ae, ac, fe, fc, L["off"])
+			attr.Options = []string{au, ae, ac, fe, fc, L["off"]}
+			attr.ValueTemplate = fmt.Sprintf(`{%% if value == "2" %%}%s{%% elif value == "3" %%}%s{%% elif value == "50" %%}%s{%% elif value == "51" %%}%s{%% elif value in ["1", "48", "49"] %%}%s{%% else %%}%s{%% endif %%}`, fe, fc, ae, ac, L["off"], au)
 			m[key] = attr
 
 		case calForcingRe.MatchString(key):

@@ -611,3 +611,20 @@ func TestSystemControlToggle(t *testing.T) {
 		}
 	}
 }
+
+func TestRegimeReadsForcingTopic(t *testing.T) {
+	b := New("SYS1", nil)
+	c := b.component("Z1_REGIME", models.Attributes{
+		EntityType: "sensor", DeviceClass: "enum", EntityCategory: "primary",
+		StateKey: "Z1_FORCING",
+		Options:  []string{"automatic", "off"},
+	}, "Regime")
+	// The derived sensor subscribes to the FORCING topic, not its own key.
+	if c["state_topic"] != "setecna/SYS1/Z1_FORCING" {
+		t.Fatalf("regime must read the FORCING topic, got %v", c["state_topic"])
+	}
+	// But keeps its own unique_id.
+	if c["unique_id"] != "SYS1_Z1_REGIME" {
+		t.Fatalf("regime unique_id = %v", c["unique_id"])
+	}
+}
