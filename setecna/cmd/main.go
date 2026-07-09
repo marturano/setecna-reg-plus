@@ -194,18 +194,23 @@ func run(ctx context.Context, cfg appConfig) error {
 	params.AddEnabledParams(responseMap, cfg.readonly)
 	params.Localize(cfg.language)
 
-	// TEMP DEBUG: dump the calendar (Orologio) parameters so we can decode the
-	// zone<->clock cross-reference encoding. Remove once the calendar sensor is
-	// implemented.
+	// TEMP DEBUG: dump the calendar (Orologio) parameters and all active-zone
+	// parameters so we can decode the zone<->clock association. Remove once the
+	// calendar sensor is implemented.
 	{
 		var dbg []string
 		for k, v := range responseMap {
-			if strings.Contains(k, "XREF") || strings.HasPrefix(k, "MT") {
+			keep := strings.Contains(k, "XREF") || strings.HasPrefix(k, "MT")
+			// active zones Z1_.. through Z6_..
+			if len(k) >= 3 && k[0] == 'Z' && k[1] >= '1' && k[1] <= '6' && k[2] == '_' {
+				keep = true
+			}
+			if keep {
 				dbg = append(dbg, k+"="+v)
 			}
 		}
 		sort.Strings(dbg)
-		slog.Info("DEBUG calendar params (paste this line back)", "values", strings.Join(dbg, " "))
+		slog.Info("DEBUG zone/calendar params (paste this line back)", "values", strings.Join(dbg, " "))
 	}
 
 	advClimate := cfg.advInt && !cfg.readonly
