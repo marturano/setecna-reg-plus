@@ -1,6 +1,6 @@
 <!-- https://developers.home-assistant.io/docs/add-ons/presentation#keeping-a-changelog -->
 
-## 1.0.4
+## 1.0.5
 
 ### Changed
 - **Zone regime sensor is now visible.** Each zone's `ZONE_MODE` (previously a hidden diagnostic) is now a primary "Zone N regime" sensor with clear states: `automatic economy`, `automatic comfort`, `forced economy`, `forced comfort`, `off`. `ZONE_MODE` is decoded as a bitfield (bit4 = regime engaged, bit2 = forced, bit0 = comfort; the heat-demand bit is ignored so an idle zone keeps its regime), so it reports correctly in every state. It is localized by the `language` option. The forcing dropdown was already translatable via `language` (1.0.3).
