@@ -1,6 +1,6 @@
 <!-- https://developers.home-assistant.io/docs/add-ons/presentation#keeping-a-changelog -->
 
-## 1.0.6
+## 1.0.7
 
 ### Added
 - **Per-zone calendar sensor.** Each zone now has a "Zone N calendar" sensor showing which weekly schedule (Orologio) the zone follows (day/night/bathrooms, etc.). The associated clock is decoded from bits 4-6 of the zone's `CFG1` register and named from your `MT<n>` `entity_names` override, falling back to "Calendar N". It updates automatically if a zone is reassigned to another schedule.
