@@ -27,25 +27,26 @@ import (
 )
 
 type appConfig struct {
-	systemID      string
-	username      string
-	password      string
-	mqttHost      string
-	mqttPort      string
-	mqttUser      string
-	mqttPassword  string
-	advInt        bool
-	readonly      bool
-	diagnostics   bool
-	language      string
-	systemControl bool
-	seasonControl bool
-	acsControl    bool
-	cleanupLegacy bool
-	debug         bool
-	pollInterval  time.Duration
-	names         map[string]string
-	activeZones   map[int]bool
+	systemID        string
+	username        string
+	password        string
+	mqttHost        string
+	mqttPort        string
+	mqttUser        string
+	mqttPassword    string
+	advInt          bool
+	readonly        bool
+	diagnostics     bool
+	language        string
+	systemControl   bool
+	seasonControl   bool
+	acsControl      bool
+	cleanupLegacy   bool
+	debug           bool
+	hideUnavailable bool
+	pollInterval    time.Duration
+	names           map[string]string
+	activeZones     map[int]bool
 }
 
 // parseActiveZones parses the ACTIVE_ZONES env var (zone numbers separated by
@@ -112,6 +113,7 @@ func loadConfig() (appConfig, error) {
 	cfg.acsControl = envBool("ACS_CONTROL", true)
 	cfg.cleanupLegacy = envBool("CLEANUP_LEGACY", true)
 	cfg.debug = envBool("DEBUG", false)
+	cfg.hideUnavailable = envBool("HIDE_UNAVAILABLE", false)
 
 	seconds, err := strconv.Atoi(envOr("POLL_INTERVAL", "30"))
 	if err != nil || seconds < 10 {
@@ -223,6 +225,9 @@ func run(ctx context.Context, cfg appConfig) error {
 
 	params := make(models.ParamsMap)
 	params.AddEnabledParams(responseMap, cfg.readonly)
+	if cfg.hideUnavailable {
+		params.FilterUnavailable(responseMap)
+	}
 	params.Localize(cfg.language)
 
 	if cfg.debug {

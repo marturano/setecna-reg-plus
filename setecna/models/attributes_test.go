@@ -186,3 +186,42 @@ func TestLocalizeEnglish(t *testing.T) {
 		t.Fatalf("english economy should render as eco, got %v", got)
 	}
 }
+
+func TestFilterUnavailable(t *testing.T) {
+	m := ParamsMap{
+		// temp sensor reading a 16-bit sentinel -> removed
+		"HP0_TRET": Attributes{EntityType: "sensor", ValueTemplate: tplTemp16Sentinel},
+		// temp sensor with a valid reading -> kept
+		"HP0_TFLOW": Attributes{EntityType: "sensor", ValueTemplate: tplTemp16Sentinel},
+		// signed temp reading a sentinel -> removed
+		"GLOBAL_EXPECTED_DEWP": Attributes{EntityType: "sensor", ValueTemplate: tplTempSigned},
+		// raw sensor reading 255 sentinel -> removed
+		"SOME_RAW": Attributes{EntityType: "sensor", ValueTemplate: tplRawSentinel},
+		// derived text sensor (no template, value not in `from`) -> kept
+		"Z1_REGIME": Attributes{EntityType: "sensor"},
+		// enum sensor (no sentinel template) -> kept
+		"Z1_FORCING": Attributes{EntityType: "sensor", ValueTemplate: tplOnOff},
+		// a control reading a sentinel -> kept (not a plain sensor)
+		"Z1_SET_RH": Attributes{EntityType: "number", ValueTemplate: tplTemp16Sentinel},
+	}
+	from := map[string]string{
+		"HP0_TRET":             "32768",
+		"HP0_TFLOW":            "355",
+		"GLOBAL_EXPECTED_DEWP": "32769",
+		"SOME_RAW":             "255",
+		"Z1_FORCING":           "0",
+		"Z1_SET_RH":            "65535",
+		// HP0_TRET etc present; Z1_REGIME intentionally absent from `from`
+	}
+	m.FilterUnavailable(from)
+	for _, gone := range []string{"HP0_TRET", "GLOBAL_EXPECTED_DEWP", "SOME_RAW"} {
+		if _, ok := m[gone]; ok {
+			t.Errorf("%s should have been removed", gone)
+		}
+	}
+	for _, kept := range []string{"HP0_TFLOW", "Z1_REGIME", "Z1_FORCING", "Z1_SET_RH"} {
+		if _, ok := m[kept]; !ok {
+			t.Errorf("%s should have been kept", kept)
+		}
+	}
+}

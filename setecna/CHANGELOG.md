@@ -1,5 +1,20 @@
 <!-- https://developers.home-assistant.io/docs/add-ons/presentation#keeping-a-changelog -->
 
+## 1.0.16
+
+### Added
+- **New option `hide_unavailable` (off by default).** When enabled, temperature/raw sensors whose input reads a "not available" sentinel on your system are not created at all, instead of appearing as "unknown" on the main device. Controls (numbers/selects/switches), the thermostat, and derived text sensors (regime, calendar) are never affected. On systems where those inputs are wired, leave it off and the sensors show their values normally.
+
+## 1.0.15
+
+### Fixed
+- **Regime sensor: automatic-active zones are no longer mislabelled as forced.** FORCING encodes automatic-active as 50 (eco) / 51 (comfort), not 0; the code treated any non-zero FORCING as forced. Now only FORCING 2 (eco) / 3 (comfort) count as forced; 0 and 48-51 are automatic. The comfort/eco distinction still comes from the active setpoint (ZONE_SET), so it works even when the zone is idle.
+
+## 1.0.14
+
+### Fixed
+- **Removed the eco preset from the thermostat for good.** Amazon Alexa maps any climate preset to its ECO thermostat mode, and Alexa's ECO/AUTO modes require a min/max setpoint range. This thermostat uses a single setpoint, so exposing a preset made Alexa spin without ever showing the temperature and left the ECO badge stuck on (even in auto). The climate is now a plain heat/cool thermostat (temperature + humidity); the regime (automatic/eco/comfort) is controlled only by the "Forcing" select and shown by the "Regime" sensor.
+
 ## 1.0.13
 
 ### Changed

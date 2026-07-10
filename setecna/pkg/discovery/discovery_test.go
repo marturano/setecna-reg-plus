@@ -2,7 +2,6 @@ package discovery
 
 import (
 	"encoding/json"
-	"fmt"
 	"strings"
 	"testing"
 
@@ -164,16 +163,11 @@ func TestDeviceConfig(t *testing.T) {
 	if _, ok := z1["temperature_low_state_topic"]; ok {
 		t.Fatal("climate must expose a single target, not a low/high range")
 	}
-	// Two presets so the field shows Auto/Eco instead of None: auto = automatic
-	// (0), eco = forced eco (2), both wired to FORCING.
-	if got := fmt.Sprintf("%v", z1["preset_modes"]); got != "[auto eco]" {
-		t.Fatalf("climate preset_modes = %v", z1["preset_modes"])
-	}
-	if z1["preset_mode_state_topic"] != "setecna/SYS1/Z1_FORCING" {
-		t.Fatalf("preset_mode_state_topic = %v", z1["preset_mode_state_topic"])
-	}
-	if z1["preset_mode_command_topic"] != "setecna/SYS1/Z1_FORCING/set" {
-		t.Fatalf("preset_mode_command_topic = %v", z1["preset_mode_command_topic"])
+	// Presets must NOT be exposed: Alexa maps a preset to its ECO thermostat
+	// mode, which needs a min/max range and breaks this single-setpoint climate
+	// (spinning, stuck ECO badge). Regime lives on the separate select.
+	if _, ok := z1["preset_modes"]; ok {
+		t.Fatal("climate must not expose preset_modes (breaks Alexa)")
 	}
 
 	// Every component must have platform + unique_id and state topics
@@ -691,6 +685,10 @@ func TestRegimeStateMessages(t *testing.T) {
 		"Z3_SET_CS": "240", "Z3_SET_CW": "210", "Z3_SET_ES": "245", "Z3_SET_EW": "190",
 		"Z6_SENSOR_CHN": "1", "Z6_FORCING": "0", "Z6_ZONE_SET": "0",
 		"Z6_SET_CS": "240", "Z6_SET_CW": "210", "Z6_SET_ES": "245", "Z6_SET_EW": "190",
+		// Automatic ACTIVE: FORCING=50 (auto eco) / 51 (auto comfort) must be
+		// read as automatic, not forced.
+		"Z4_SENSOR_CHN": "1", "Z4_FORCING": "50", "Z4_ZONE_SET": "245",
+		"Z4_SET_CS": "240", "Z4_SET_CW": "210", "Z4_SET_ES": "245", "Z4_SET_EW": "190",
 	}
 	b := New("SYS1", nil) // English
 	got := map[string]string{}
@@ -705,6 +703,8 @@ func TestRegimeStateMessages(t *testing.T) {
 	}
 	// Z3: ZONE_SET=245=ES -> eco, FORCING=3 -> forced -> "forced eco"
 	want["setecna/SYS1/Z3_REGIME"] = "forced eco"
+	// Z4: FORCING=50 (auto active eco) -> automatic, ZONE_SET=ES -> "automatic eco"
+	want["setecna/SYS1/Z4_REGIME"] = "automatic eco"
 	for topic, val := range want {
 		if got[topic] != val {
 			t.Errorf("%s = %q, want %q", topic, got[topic], val)

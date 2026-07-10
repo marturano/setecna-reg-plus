@@ -40,6 +40,9 @@ configuration:
   debug:
     name: Journalisation de débogage complète
     description: Enregistre tous les paramètres lus et chaque message MQTT. Uniquement à des fins de support/diagnostic ; laisser désactivé en usage normal.
+  hide_unavailable:
+    name: Masquer les capteurs indisponibles
+    description: Ne crée pas les capteurs de température/bruts dont l'entrée lit une valeur "indisponible" sur votre système (ils apparaîtraient comme "inconnu"). Les commandes et capteurs dérivés ne sont pas affectés. Désactivé par défaut.
   poll_interval:
     name: Intervalle d'interrogation
     description: Secondes entre les rafraîchissements de données depuis le cloud Setecna (10-600).

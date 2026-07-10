@@ -24,7 +24,7 @@ import (
 
 const (
 	// Version of the add-on, shown as origin/software version in HA.
-	Version = "1.0.13"
+	Version = "1.0.16"
 
 	discoveryPrefix = "homeassistant"
 	// REBRAND: if you fork this under a different GitHub owner/repo name,
@@ -562,16 +562,12 @@ func (b *Bridge) climateComponent(zone int, season helpers.Season, withHumidity 
 		"action_template": fmt.Sprintf(
 			`{%% if value == "1" %%}%s{%% else %%}idle{%% endif %%}`, action),
 
-		// Two presets so the field reads "Auto"/"Eco" instead of "None":
-		// auto = automatic (FORCING 0), eco = forced economy (FORCING 2).
-		// "eco" is lowercase so Alexa maps it to ECO. Off (1) and forced
-		// comfort (3) fall back to the "auto" label; use the "Forcing" select
-		// and "Regime" sensor for the full picture.
-		"preset_modes":                 []string{"auto", "eco"},
-		"preset_mode_state_topic":      b.StateTopic(z + "_FORCING"),
-		"preset_mode_value_template":   `{% if value == "2" %}eco{% else %}auto{% endif %}`,
-		"preset_mode_command_topic":    b.CommandTopic(z + "_FORCING"),
-		"preset_mode_command_template": `{% if value == "eco" %}2{% else %}0{% endif %}`,
+		// No preset_modes on the climate. Amazon Alexa maps a climate preset to
+		// its ECO thermostat mode, and Alexa's ECO/AUTO modes require a min/max
+		// setpoint range; this thermostat uses a single setpoint, so exposing a
+		// preset makes Alexa spin without showing the temperature and leaves the
+		// ECO badge stuck on. The regime (automatic / eco / comfort) is handled
+		// entirely by the separate "Forcing" select and the "Regime" sensor.
 	}
 
 	// Single target temperature mapped to the comfort setpoint of the active
@@ -756,8 +752,11 @@ func (b *Bridge) RegimeStateMessages(from map[string]string) mqtt.Messages {
 		if base == "off" {
 			state = b.regimeWord("off")
 		} else {
+			// FORCING: only 2 (eco) / 3 (comfort) are manual forcing. 0 (idle)
+			// and 48-51 (automatic active: 50=eco, 51=comfort) are automatic.
 			prefix := b.regimeWord("automatic")
-			if f, ok := atoi(from[z+"_FORCING"]); ok && f != 0 {
+			switch from[z+"_FORCING"] {
+			case "2", "3":
 				prefix = b.regimeWord("forced")
 			}
 			state = prefix + " " + b.regimeWord(base)

@@ -40,6 +40,9 @@ configuration:
   debug:
     name: Vollständiges Debug-Log
     description: Protokolliert alle abgerufenen Parameter und jede MQTT-Nachricht. Nur zu Support-/Diagnosezwecken; im Normalbetrieb ausgeschaltet lassen.
+  hide_unavailable:
+    name: Nicht verfügbare Sensoren ausblenden
+    description: Erstellt keine Temperatur-/Rohsensoren, deren Eingang auf Ihrem System "nicht verfügbar" liefert (würden als "unbekannt" erscheinen). Bedienelemente und abgeleitete Sensoren bleiben unberührt. Standardmäßig aus.
   poll_interval:
     name: Abfrageintervall
     description: Sekunden zwischen den Datenaktualisierungen aus der Setecna-Cloud (10-600).

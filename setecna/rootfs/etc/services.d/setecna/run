@@ -45,6 +45,7 @@ export SEASON_CONTROL="$(bashio::config 'season_control')"
 export ACS_CONTROL="$(bashio::config 'acs_control')"
 export CLEANUP_LEGACY="$(bashio::config 'cleanup_legacy')"
 export DEBUG="$(bashio::config 'debug')"
+export HIDE_UNAVAILABLE="$(bashio::config 'hide_unavailable')"
 export POLL_INTERVAL="$(bashio::config 'poll_interval')"
 
 # Friendly-name overrides: one "PREFIX=Name" per array element, joined with

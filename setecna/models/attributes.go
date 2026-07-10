@@ -3,6 +3,7 @@ package models
 import (
 	"fmt"
 	"regexp"
+	"strconv"
 )
 
 type Attributes struct {
@@ -90,6 +91,46 @@ func (m ParamsMap) AddDisabledParams(from map[string]string, isReadOnly bool) {
 	m.addOpenTherm(from, false, !isReadOnly, isReadOnly)
 	m.addGlobalOutputs(from, false, !isReadOnly, isReadOnly)
 	m.addSystemAlarms(from, false, !isReadOnly, isReadOnly)
+}
+
+// FilterUnavailable removes read-only temperature/raw sensor entities whose
+// current value is a "not available" sentinel (or empty), i.e. the ones Home
+// Assistant would render as "unknown". Only entities using a sentinel-filtering
+// template are considered, so derived text sensors (regime, calendar), enum
+// sensors and every control (number/select/switch/climate) are always kept.
+func (m ParamsMap) FilterUnavailable(from map[string]string) {
+	sentinels := func(tpl string) (map[int]bool, bool) {
+		switch tpl {
+		case tplTemp16Sentinel:
+			return map[int]bool{32768: true, 32769: true, 65280: true, 65535: true}, true
+		case tplTempSigned:
+			return map[int]bool{32768: true, 32769: true}, true
+		case tplRawSentinel:
+			return map[int]bool{255: true, 32768: true, 32769: true, 65280: true, 65535: true}, true
+		}
+		return nil, false
+	}
+	for key, attr := range m {
+		if attr.EntityType != "sensor" {
+			continue
+		}
+		sent, ok := sentinels(attr.ValueTemplate)
+		if !ok {
+			continue
+		}
+		sk := key
+		if attr.StateKey != "" {
+			sk = attr.StateKey
+		}
+		val, present := from[sk]
+		if !present || val == "" {
+			delete(m, key)
+			continue
+		}
+		if n, err := strconv.Atoi(val); err == nil && sent[n] {
+			delete(m, key)
+		}
+	}
 }
 
 func (m ParamsMap) addLastUpdate(from map[string]string, static, read, write bool) {
