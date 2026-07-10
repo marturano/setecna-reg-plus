@@ -113,7 +113,7 @@ func loadConfig() (appConfig, error) {
 	cfg.acsControl = envBool("ACS_CONTROL", true)
 	cfg.cleanupLegacy = envBool("CLEANUP_LEGACY", true)
 	cfg.debug = envBool("DEBUG", false)
-	cfg.hideUnavailable = envBool("HIDE_UNAVAILABLE", false)
+	cfg.hideUnavailable = envBool("HIDE_UNAVAILABLE", true)
 
 	seconds, err := strconv.Atoi(envOr("POLL_INTERVAL", "30"))
 	if err != nil || seconds < 10 {

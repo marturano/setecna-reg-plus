@@ -1,5 +1,15 @@
 <!-- https://developers.home-assistant.io/docs/add-ons/presentation#keeping-a-changelog -->
 
+## 1.0.18
+
+### Fixed
+- **Thermostat now shows OFF when the zone is actually off.** The mode previously read only the manual forcing (FORCING=1), so a zone that is off by schedule (e.g. an unused zone with no active setpoint) appeared active in Home Assistant / Alexa. The mode is now computed by the bridge and reads "off" whenever the zone is forced off *or* off by schedule (no active comfort/eco setpoint), otherwise the season's heat/cool mode. Published on a dedicated `Z*_MODE_HVAC` topic; setting the mode still writes the forcing.
+
+## 1.0.17
+
+### Changed
+- **`hide_unavailable` is now ON by default.** Sensors whose input reads a "not available" sentinel are hidden out of the box (they no longer appear as "unknown" on the main device). The filter only removes sensors that are actually reading a sentinel, so wired inputs are unaffected. Turn the option off if you want to see them as "unknown" again.
+
 ## 1.0.16
 
 ### Added

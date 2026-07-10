@@ -2,6 +2,7 @@ package discovery
 
 import (
 	"encoding/json"
+	"fmt"
 	"strings"
 	"testing"
 
@@ -152,9 +153,9 @@ func TestDeviceConfig(t *testing.T) {
 		t.Fatalf("zone_1 sub-device identifier wrong: %v", dev["identifiers"])
 	}
 
-	// Winter: heat mode and single target = comfort (CW) setpoint.
-	if !strings.Contains(z1["mode_state_template"].(string), "heat") {
-		t.Fatal("winter climates must use heat mode")
+	// Winter: heat mode available and single target = comfort (CW) setpoint.
+	if got := fmt.Sprintf("%v", z1["modes"]); got != "[heat off]" {
+		t.Fatalf("winter climate modes = %v", z1["modes"])
 	}
 	if z1["temperature_state_topic"] != "setecna/SYS1/Z1_SET_CW" {
 		t.Fatalf("winter target setpoint topic wrong: %v", z1["temperature_state_topic"])
@@ -234,14 +235,14 @@ func TestClimateModeFromForcing(t *testing.T) {
 	b := New("SYS1", nil)
 	z1 := allComponents(t, b, models.ParamsMap{}, testResponseMap(), true)["zone_1"]
 
-	// Mode must be driven by FORCING, not by the relay output.
-	if z1["mode_state_topic"] != "setecna/SYS1/Z1_FORCING" {
-		t.Fatalf("mode should read FORCING, got %v", z1["mode_state_topic"])
+	// Mode is driven by the computed MODE_HVAC topic, not the relay output.
+	if z1["mode_state_topic"] != "setecna/SYS1/Z1_MODE_HVAC" {
+		t.Fatalf("mode should read MODE_HVAC, got %v", z1["mode_state_topic"])
 	}
-	// FORCING == 1 (forced off) => off, otherwise heat (winter).
-	tmpl := z1["mode_state_template"].(string)
-	if !strings.Contains(tmpl, `"1"`) || !strings.Contains(tmpl, "off") || !strings.Contains(tmpl, "heat") {
-		t.Fatalf("mode template not mapping forced-off correctly: %s", tmpl)
+	// Setting the mode writes FORCING (off -> 1, on -> 0).
+	cmd := z1["mode_command_template"].(string)
+	if !strings.Contains(cmd, "0") || !strings.Contains(cmd, "1") {
+		t.Fatalf("mode command must map to forcing 0/1: %s", cmd)
 	}
 	// Action must come from the relay output.
 	if z1["action_topic"] != "setecna/SYS1/Z1_OUTPUT" {
@@ -677,6 +678,7 @@ func TestRegimeStateMessages(t *testing.T) {
 	// Real night-time capture: all zones automatic (FORCING=0), most in
 	// economy (ZONE_SET==SET_ES=245), bagni off (ZONE_SET=0).
 	from := map[string]string{
+		"GLOBAL_SEASON": "0", // winter -> on mode is "heat"
 		"Z1_SENSOR_CHN": "1", "Z1_FORCING": "0", "Z1_ZONE_SET": "245",
 		"Z1_SET_CS": "240", "Z1_SET_CW": "210", "Z1_SET_ES": "245", "Z1_SET_EW": "190",
 		"Z2_SENSOR_CHN": "1", "Z2_FORCING": "0", "Z2_ZONE_SET": "240",
@@ -705,6 +707,10 @@ func TestRegimeStateMessages(t *testing.T) {
 	want["setecna/SYS1/Z3_REGIME"] = "forced eco"
 	// Z4: FORCING=50 (auto active eco) -> automatic, ZONE_SET=ES -> "automatic eco"
 	want["setecna/SYS1/Z4_REGIME"] = "automatic eco"
+	// Computed climate mode: off zones report "off", active zones the season
+	// mode (winter default here -> "heat").
+	want["setecna/SYS1/Z1_MODE_HVAC"] = "heat" // eco but enabled
+	want["setecna/SYS1/Z6_MODE_HVAC"] = "off"  // ZONE_SET=0 -> off
 	for topic, val := range want {
 		if got[topic] != val {
 			t.Errorf("%s = %q, want %q", topic, got[topic], val)

@@ -42,7 +42,7 @@ configuration:
     description: Log all fetched parameters and every MQTT message. For troubleshooting/support purposes only; leave off for normal use.
   hide_unavailable:
     name: Hide unavailable sensors
-    description: Do not create temperature/raw sensors whose input reads a "not available" value on your system (they would show as "unknown"). Controls and derived sensors are unaffected. Off by default.
+    description: Do not create temperature/raw sensors whose input reads a "not available" value on your system (they would show as "unknown"). Controls and derived sensors are unaffected. On by default; turn it off to show them as "unknown".
   poll_interval:
     name: Poll interval
     description: Seconds between data refreshes from the Setecna cloud (10-600).

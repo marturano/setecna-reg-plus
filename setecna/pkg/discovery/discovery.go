@@ -24,7 +24,7 @@ import (
 
 const (
 	// Version of the add-on, shown as origin/software version in HA.
-	Version = "1.0.16"
+	Version = "1.0.18"
 
 	discoveryPrefix = "homeassistant"
 	// REBRAND: if you fork this under a different GitHub owner/repo name,
@@ -545,13 +545,12 @@ func (b *Bridge) climateComponent(zone int, season helpers.Season, withHumidity 
 		"min_temp":                     15,
 		"max_temp":                     30,
 
-		// The selected mode follows the zone forcing state: "forced off"
-		// (1) means the zone is off, anything else means it is enabled.
-		// Setting the mode writes the forcing: off -> 1, on -> 0 (automatic).
-		"modes":            []string{onMode, "off"},
-		"mode_state_topic": b.StateTopic(z + "_FORCING"),
-		"mode_state_template": fmt.Sprintf(
-			`{%% if value == "1" %%}off{%% else %%}%s{%% endif %%}`, onMode),
+		// The selected mode is computed by the bridge (see RegimeStateMessages):
+		// "off" when the zone is forced off (FORCING 1) or off by schedule
+		// (no active setpoint), otherwise the season's heat/cool mode. Setting
+		// the mode writes the forcing: off -> 1, on -> 0 (automatic).
+		"modes":              []string{onMode, "off"},
+		"mode_state_topic":   b.StateTopic(z + "_MODE_HVAC"),
 		"mode_command_topic": b.CommandTopic(z + "_FORCING"),
 		"mode_command_template": fmt.Sprintf(
 			`{%% if value == "%s" %%}0{%% else %%}1{%% endif %%}`, onMode),
@@ -725,6 +724,11 @@ func (b *Bridge) localizeLabel(label string) string {
 // only distinguishes automatic from forced. Values are localized.
 func (b *Bridge) RegimeStateMessages(from map[string]string) mqtt.Messages {
 	atoi := func(s string) (int, bool) { n, err := strconv.Atoi(s); return n, err == nil }
+	// The climate "on" mode follows the season, matching climateComponent.
+	onMode := "heat"
+	if from["GLOBAL_SEASON"] != "0" {
+		onMode = "cool"
+	}
 	var msgs mqtt.Messages
 	for i := 1; i <= 32; i++ {
 		z := "Z" + strconv.Itoa(i)
@@ -764,6 +768,21 @@ func (b *Bridge) RegimeStateMessages(from map[string]string) mqtt.Messages {
 		msgs = append(msgs, mqtt.Message{
 			Topic:   b.StateTopic(z + "_REGIME"),
 			Payload: state,
+			Qos:     0,
+			Retain:  true,
+		})
+		// Companion climate mode: the zone is "off" when forced off (FORCING 1)
+		// or when it is off by schedule (no active comfort/eco setpoint, i.e.
+		// base == "off" - e.g. an unused zone with ZONE_SET 0). This is what the
+		// thermostat reads for its mode, so a schedule-off zone shows off instead
+		// of appearing active. Setting the mode still writes FORCING.
+		mode := onMode
+		if base == "off" || from[z+"_FORCING"] == "1" {
+			mode = "off"
+		}
+		msgs = append(msgs, mqtt.Message{
+			Topic:   b.StateTopic(z + "_MODE_HVAC"),
+			Payload: mode,
 			Qos:     0,
 			Retain:  true,
 		})

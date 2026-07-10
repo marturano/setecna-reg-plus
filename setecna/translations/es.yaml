@@ -42,7 +42,7 @@ configuration:
     description: Registra todos los parámetros leídos y cada mensaje MQTT. Solo con fines de soporte/diagnóstico; déjelo desactivado para el uso normal.
   hide_unavailable:
     name: Ocultar sensores no disponibles
-    description: No crea los sensores de temperatura/brutos cuya entrada lee un valor "no disponible" en tu sistema (aparecerían como "desconocido"). No afecta a controles ni sensores derivados. Desactivado por defecto.
+    description: No crea los sensores de temperatura/brutos cuya entrada lee un valor "no disponible" en tu sistema (aparecerían como "desconocido"). No afecta a controles ni sensores derivados. Activado por defecto; desactívalo para volver a verlos como "desconocido".
   poll_interval:
     name: Intervalo de sondeo
     description: Segundos entre las actualizaciones de datos desde la nube de Setecna (10-600).
