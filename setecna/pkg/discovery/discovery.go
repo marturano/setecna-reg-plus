@@ -24,7 +24,7 @@ import (
 
 const (
 	// Version of the add-on, shown as origin/software version in HA.
-	Version = "1.0.7"
+	Version = "1.0.8"
 
 	discoveryPrefix = "homeassistant"
 	// REBRAND: if you fork this under a different GitHub owner/repo name,
@@ -36,6 +36,9 @@ const (
 type Bridge struct {
 	SystemID  string
 	BaseTopic string // root of all state/command topics, e.g. "setecna/<systemID>"
+	// Language is the 2-letter UI language (en/it/de/fr/es) used to localize
+	// entity labels and computed sensor states. Empty or unknown = English.
+	Language string
 	// Names holds user-provided friendly-name overrides, keyed either by
 	// element prefix ("Z1", "C1", "HP0", ...) or by exact parameter id
 	// ("GLOBAL_OUTPUT_3"). A prefix override renames every entity of that
@@ -155,14 +158,14 @@ func (b *Bridge) entityLabel(key string, attr models.Attributes, elem string) st
 		}
 	}
 	if elem == "" {
-		return attr.Name
+		return b.localizeLabel(attr.Name)
 	}
 	lead := elementLead(elem)
 	label := attr.Name
 	if strings.HasPrefix(attr.Name, lead+" ") {
 		label = strings.TrimSpace(attr.Name[len(lead):])
 	}
-	return capitalize(label)
+	return b.localizeLabel(capitalize(label))
 }
 
 // calKeyRe matches calendar parameter ids ("MT3_MODE" -> "3").
@@ -530,7 +533,7 @@ func (b *Bridge) climateComponent(zone int, season helpers.Season, withHumidity 
 		// shows it as "<zone> Thermostat" and it decouples cleanly from the
 		// device name, so renaming/regenerating IDs behaves like any other
 		// entity.
-		"name": "Thermostat",
+		"name": b.localizeLabel("Thermostat"),
 
 		"current_temperature_topic":    b.StateTopic(z + "_TEMP"),
 		"current_temperature_template": scaleDown,
@@ -555,9 +558,17 @@ func (b *Bridge) climateComponent(zone int, season helpers.Season, withHumidity 
 		"action_template": fmt.Sprintf(
 			`{%% if value == "1" %%}%s{%% else %%}idle{%% endif %%}`, action),
 
-		// No preset_modes: Amazon Alexa special-cases the "eco" preset and
-		// mis-reports the thermostat state (shows "eco" even when it is not).
-		// The economy/comfort forcing is exposed as a separate select instead.
+		// Forcing exposed as preset modes: the preset shows the current regime
+		// (comfort/eco) - so an "eco" badge appears whenever economy is active,
+		// including automatic economy - and selecting a preset forces that
+		// regime (comfort=3, eco=2), while clearing it (None) returns to
+		// automatic (0). The live comfort/eco value is published by the bridge
+		// on the Z*_PRESET topic (see RegimeStateMessages). "eco" is the
+		// standard Home Assistant / Alexa preset name, so Alexa surfaces ECO.
+		"preset_modes":                 []string{"comfort", "eco"},
+		"preset_mode_state_topic":      b.StateTopic(z + "_PRESET"),
+		"preset_mode_command_topic":    b.CommandTopic(z + "_FORCING"),
+		"preset_mode_command_template": `{% if value == "comfort" %}3{% elif value == "eco" %}2{% else %}0{% endif %}`,
 	}
 
 	// Single target temperature mapped to the comfort setpoint of the active
@@ -576,14 +587,13 @@ func (b *Bridge) climateComponent(zone int, season helpers.Season, withHumidity 
 	c["temperature_command_template"] = scaleUp
 
 	if withHumidity {
+		// Only the current humidity is shown on the thermostat. The target
+		// humidity control is intentionally NOT set here: Home Assistant labels
+		// it "target humidity" (a name we cannot override via MQTT discovery).
+		// The setpoint is exposed instead as the dedicated, renamable
+		// Z*_SET_RH number entity ("Set humidity").
 		c["current_humidity_topic"] = b.StateTopic(z + "_RH")
 		c["current_humidity_template"] = scaleDown
-		c["target_humidity_state_topic"] = b.StateTopic(z + "_SET_RH")
-		c["target_humidity_state_template"] = scaleDown
-		c["target_humidity_command_topic"] = b.CommandTopic(z + "_SET_RH")
-		c["target_humidity_command_template"] = scaleUp
-		c["min_humidity"] = 45
-		c["max_humidity"] = 75
 	}
 	return c
 }
@@ -657,6 +667,112 @@ func (b *Bridge) CalendarStateMessages(from map[string]string) mqtt.Messages {
 		msgs = append(msgs, mqtt.Message{
 			Topic:   b.StateTopic(zk + "_CALENDAR"),
 			Payload: value,
+			Qos:     0,
+			Retain:  true,
+		})
+	}
+	return msgs
+}
+
+// regimeWords holds the localized words used to compose the zone regime state.
+var regimeWords = map[string]map[string]string{
+	"en": {"automatic": "automatic", "forced": "forced", "comfort": "comfort", "eco": "eco", "off": "off"},
+	"it": {"automatic": "automatico", "forced": "forzato", "comfort": "comfort", "eco": "eco", "off": "spento"},
+	"de": {"automatic": "automatisch", "forced": "erzwungen", "comfort": "Komfort", "eco": "eco", "off": "aus"},
+	"fr": {"automatic": "automatique", "forced": "forcé", "comfort": "confort", "eco": "eco", "off": "arrêt"},
+	"es": {"automatic": "automático", "forced": "forzado", "comfort": "confort", "eco": "eco", "off": "apagado"},
+}
+
+// entityLabels translates the entity-specific labels shown on the zone/
+// thermostat device. English (and unknown languages) are left as-is.
+var entityLabels = map[string]map[string]string{
+	"it": {"Thermostat": "Termostato", "Temperature": "Temperatura", "Humidity": "Umidità", "Setpoint": "Setpoint", "Humidity setpoint": "Umidità impostata", "Dew point": "Punto di rugiada", "Calendar": "Calendario", "Regime": "Regime", "Forcing": "Forzatura"},
+	"de": {"Thermostat": "Thermostat", "Temperature": "Temperatur", "Humidity": "Luftfeuchtigkeit", "Setpoint": "Sollwert", "Humidity setpoint": "Eingestellte Luftfeuchtigkeit", "Dew point": "Taupunkt", "Calendar": "Kalender", "Regime": "Modus", "Forcing": "Erzwingen"},
+	"fr": {"Thermostat": "Thermostat", "Temperature": "Température", "Humidity": "Humidité", "Setpoint": "Consigne", "Humidity setpoint": "Humidité réglée", "Dew point": "Point de rosée", "Calendar": "Calendrier", "Regime": "Régime", "Forcing": "Forçage"},
+	"es": {"Thermostat": "Termostato", "Temperature": "Temperatura", "Humidity": "Humedad", "Setpoint": "Consigna", "Humidity setpoint": "Humedad ajustada", "Dew point": "Punto de rocío", "Calendar": "Calendario", "Regime": "Régimen", "Forcing": "Forzado"},
+}
+
+func (b *Bridge) regimeWord(k string) string {
+	if m, ok := regimeWords[b.Language]; ok {
+		if v, ok := m[k]; ok {
+			return v
+		}
+	}
+	return regimeWords["en"][k]
+}
+
+// localizeLabel translates a default entity label into the bridge language.
+// User-provided name overrides never pass through here, so they are preserved.
+func (b *Bridge) localizeLabel(label string) string {
+	if b.Language == "" || b.Language == "en" {
+		return label
+	}
+	if m, ok := entityLabels[b.Language]; ok {
+		if v, ok := m[label]; ok {
+			return v
+		}
+	}
+	return label
+}
+
+// RegimeStateMessages publishes, for each active zone, the current regime:
+// "<automatic|forced> <comfort|eco>" or "off". The comfort/eco distinction is
+// read from the active setpoint (ZONE_SET) matched against the comfort
+// (SET_CS/SET_CW) and economy (SET_ES/SET_EW) setpoints; FORCING (0 = none)
+// only distinguishes automatic from forced. Values are localized.
+func (b *Bridge) RegimeStateMessages(from map[string]string) mqtt.Messages {
+	atoi := func(s string) (int, bool) { n, err := strconv.Atoi(s); return n, err == nil }
+	var msgs mqtt.Messages
+	for i := 1; i <= 32; i++ {
+		z := "Z" + strconv.Itoa(i)
+		if sc := from[z+"_SENSOR_CHN"]; sc == "" || sc == "0" {
+			continue
+		}
+		if b.zoneExcluded(i) {
+			continue
+		}
+		zset, ok := atoi(from[z+"_ZONE_SET"])
+		cs, _ := atoi(from[z+"_SET_CS"])
+		cw, _ := atoi(from[z+"_SET_CW"])
+		es, _ := atoi(from[z+"_SET_ES"])
+		ew, _ := atoi(from[z+"_SET_EW"])
+		base := "off"
+		if ok && zset != 0 {
+			switch zset {
+			case cs, cw:
+				base = "comfort"
+			case es, ew:
+				base = "eco"
+			}
+		}
+		var state string
+		if base == "off" {
+			state = b.regimeWord("off")
+		} else {
+			prefix := b.regimeWord("automatic")
+			if f, ok := atoi(from[z+"_FORCING"]); ok && f != 0 {
+				prefix = b.regimeWord("forced")
+			}
+			state = prefix + " " + b.regimeWord(base)
+		}
+		msgs = append(msgs, mqtt.Message{
+			Topic:   b.StateTopic(z + "_REGIME"),
+			Payload: state,
+			Qos:     0,
+			Retain:  true,
+		})
+		// Companion preset value for the thermostat: the live comfort/eco badge
+		// (standard preset names, so Alexa maps "eco" to ECO). "None" clears it.
+		preset := "None"
+		switch base {
+		case "comfort":
+			preset = "comfort"
+		case "eco":
+			preset = "eco"
+		}
+		msgs = append(msgs, mqtt.Message{
+			Topic:   b.StateTopic(z + "_PRESET"),
+			Payload: preset,
 			Qos:     0,
 			Retain:  true,
 		})

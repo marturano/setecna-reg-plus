@@ -438,14 +438,15 @@ func (m ParamsMap) addZones(from map[string]string, static, read, write bool) {
 				// forcing and the schedule-driven regime on this controller):
 				// 1=off, 2=forced economy, 3=forced comfort, 0=automatic (idle),
 				// automatic active = 48 + regime (48/49=off, 50=economy, 51=comfort).
+				// Current regime (comfort/economy/off + automatic/forced). It is
+				// derived by the bridge from the active setpoint compared with the
+				// comfort/economy setpoints (FORCING only says automatic vs
+				// forced), so this is a plain text sensor on its own topic. See
+				// RegimeStateMessages.
 				m["Z"+fmt.Sprint(i)+"_REGIME"] = Attributes{
 					Name:           "Zone " + fmt.Sprint(i) + " regime",
 					EntityType:     "sensor",
-					DeviceClass:    "enum",
 					EntityCategory: "primary",
-					StateKey:       "Z" + fmt.Sprint(i) + "_FORCING",
-					ValueTemplate:  "{% if value == \"2\" %}forced economy{% elif value == \"3\" %}forced comfort{% elif value == \"50\" %}automatic economy{% elif value == \"51\" %}automatic comfort{% elif value in [\"1\", \"48\", \"49\"] %}off{% else %}automatic{% endif %}",
-					Options:        []string{"automatic", "automatic economy", "automatic comfort", "forced economy", "forced comfort", "off"},
 				}
 				// Associated clock (Orologio / calendar). The clock index is
 				// encoded in bits 4-6 of Z<n>_CFG1 (bit 7 = "clock associated").
@@ -1149,28 +1150,28 @@ func (m ParamsMap) addSystemAlarms(from map[string]string, static, read, write b
 var labelSets = map[string]map[string]string{
 	"en": {
 		"winter": "winter", "summer": "summer",
-		"automatic": "automatic", "off": "off", "economy": "economy", "comfort": "comfort",
-		"forced_off": "forced off", "forced_economy": "forced economy", "forced_comfort": "forced comfort",
+		"automatic": "automatic", "off": "off", "economy": "eco", "comfort": "comfort",
+		"forced_off": "forced off", "forced_economy": "forced eco", "forced_comfort": "forced comfort",
 	},
 	"it": {
 		"winter": "inverno", "summer": "estate",
-		"automatic": "automatico", "off": "spento", "economy": "economia", "comfort": "comfort",
-		"forced_off": "forzato spento", "forced_economy": "forzato economia", "forced_comfort": "forzato comfort",
+		"automatic": "automatico", "off": "spento", "economy": "eco", "comfort": "comfort",
+		"forced_off": "forzato spento", "forced_economy": "forzato eco", "forced_comfort": "forzato comfort",
 	},
 	"de": {
 		"winter": "Winter", "summer": "Sommer",
-		"automatic": "automatisch", "off": "aus", "economy": "Sparbetrieb", "comfort": "Komfort",
-		"forced_off": "erzwungen aus", "forced_economy": "erzwungen Sparbetrieb", "forced_comfort": "erzwungen Komfort",
+		"automatic": "automatisch", "off": "aus", "economy": "eco", "comfort": "Komfort",
+		"forced_off": "erzwungen aus", "forced_economy": "erzwungen eco", "forced_comfort": "erzwungen Komfort",
 	},
 	"fr": {
 		"winter": "hiver", "summer": "été",
-		"automatic": "automatique", "off": "arrêt", "economy": "économie", "comfort": "confort",
-		"forced_off": "forcé arrêt", "forced_economy": "forcé économie", "forced_comfort": "forcé confort",
+		"automatic": "automatique", "off": "arrêt", "economy": "eco", "comfort": "confort",
+		"forced_off": "forcé arrêt", "forced_economy": "forcé eco", "forced_comfort": "forcé confort",
 	},
 	"es": {
 		"winter": "invierno", "summer": "verano",
-		"automatic": "automático", "off": "apagado", "economy": "economía", "comfort": "confort",
-		"forced_off": "forzado apagado", "forced_economy": "forzado economía", "forced_comfort": "forzado confort",
+		"automatic": "automático", "off": "apagado", "economy": "eco", "comfort": "confort",
+		"forced_off": "forzado apagado", "forced_economy": "forzado eco", "forced_comfort": "forzado confort",
 	},
 }
 
@@ -1186,7 +1187,7 @@ var (
 // into the given language. Unknown languages and "en" are no-ops.
 func (m ParamsMap) Localize(lang string) {
 	L, ok := labelSets[lang]
-	if !ok || lang == "en" {
+	if !ok {
 		return
 	}
 	for key, attr := range m {
@@ -1210,18 +1211,6 @@ func (m ParamsMap) Localize(lang string) {
 			} else {
 				attr.ValueTemplate = fmt.Sprintf(`{%% if value == "0" %%}%s{%% elif value == "1" %%}%s{%% elif value == "2" %%}%s{%% elif value == "3" %%}%s{%% else %%}{{ value }}{%% endif %%}`, L["automatic"], L["off"], L["economy"], L["comfort"])
 			}
-			m[key] = attr
-
-		case zoneRegimeRe.MatchString(key):
-			// From FORCING: 2 forced-eco, 3 forced-comfort, 50 auto-eco,
-			// 51 auto-comfort, 1/48/49 off, else automatic.
-			au := L["automatic"]
-			ae := L["automatic"] + " " + L["economy"]
-			ac := L["automatic"] + " " + L["comfort"]
-			fe := L["forced_economy"]
-			fc := L["forced_comfort"]
-			attr.Options = []string{au, ae, ac, fe, fc, L["off"]}
-			attr.ValueTemplate = fmt.Sprintf(`{%% if value == "2" %%}%s{%% elif value == "3" %%}%s{%% elif value == "50" %%}%s{%% elif value == "51" %%}%s{%% elif value in ["1", "48", "49"] %%}%s{%% else %%}%s{%% endif %%}`, fe, fc, ae, ac, L["off"], au)
 			m[key] = attr
 
 		case calForcingRe.MatchString(key):

@@ -2,6 +2,7 @@ package discovery
 
 import (
 	"encoding/json"
+	"fmt"
 	"strings"
 	"testing"
 
@@ -163,10 +164,16 @@ func TestDeviceConfig(t *testing.T) {
 	if _, ok := z1["temperature_low_state_topic"]; ok {
 		t.Fatal("climate must expose a single target, not a low/high range")
 	}
-	// Presets must NOT be exposed on the climate: Alexa mis-handles the "eco"
-	// preset. The economy/comfort forcing is a separate select instead.
-	if _, ok := z1["preset_modes"]; ok {
-		t.Fatal("climate must not expose preset_modes (breaks Alexa)")
+	// Presets expose the comfort/eco forcing on the thermostat; the preset
+	// state reads the computed Z*_PRESET topic and the command writes FORCING.
+	if got := fmt.Sprintf("%v", z1["preset_modes"]); got != "[comfort eco]" {
+		t.Fatalf("climate preset_modes = %v", z1["preset_modes"])
+	}
+	if z1["preset_mode_state_topic"] != "setecna/SYS1/Z1_PRESET" {
+		t.Fatalf("preset_mode_state_topic = %v", z1["preset_mode_state_topic"])
+	}
+	if z1["preset_mode_command_topic"] != "setecna/SYS1/Z1_FORCING/set" {
+		t.Fatalf("preset_mode_command_topic = %v", z1["preset_mode_command_topic"])
 	}
 
 	// Every component must have platform + unique_id and state topics
@@ -612,23 +619,6 @@ func TestSystemControlToggle(t *testing.T) {
 	}
 }
 
-func TestRegimeReadsForcingTopic(t *testing.T) {
-	b := New("SYS1", nil)
-	c := b.component("Z1_REGIME", models.Attributes{
-		EntityType: "sensor", DeviceClass: "enum", EntityCategory: "primary",
-		StateKey: "Z1_FORCING",
-		Options:  []string{"automatic", "off"},
-	}, "Regime")
-	// The derived sensor subscribes to the FORCING topic, not its own key.
-	if c["state_topic"] != "setecna/SYS1/Z1_FORCING" {
-		t.Fatalf("regime must read the FORCING topic, got %v", c["state_topic"])
-	}
-	// But keeps its own unique_id.
-	if c["unique_id"] != "SYS1_Z1_REGIME" {
-		t.Fatalf("regime unique_id = %v", c["unique_id"])
-	}
-}
-
 func TestCalendarStateMessages(t *testing.T) {
 	// Real values from a live REG system:
 	//   giorno -> zones 1,3,4 (CFG1=143 -> clock 1)
@@ -686,5 +676,67 @@ func TestCalendarFallbackName(t *testing.T) {
 	}
 	if got["setecna/SYS1/Z3_CALENDAR"] != "—" {
 		t.Errorf("Z3 (not associated) = %q, want em dash", got["setecna/SYS1/Z3_CALENDAR"])
+	}
+}
+
+func TestRegimeStateMessages(t *testing.T) {
+	// Real night-time capture: all zones automatic (FORCING=0), most in
+	// economy (ZONE_SET==SET_ES=245), bagni off (ZONE_SET=0).
+	from := map[string]string{
+		"Z1_SENSOR_CHN": "1", "Z1_FORCING": "0", "Z1_ZONE_SET": "245",
+		"Z1_SET_CS": "240", "Z1_SET_CW": "210", "Z1_SET_ES": "245", "Z1_SET_EW": "190",
+		"Z2_SENSOR_CHN": "1", "Z2_FORCING": "0", "Z2_ZONE_SET": "240",
+		"Z2_SET_CS": "240", "Z2_SET_CW": "210", "Z2_SET_ES": "245", "Z2_SET_EW": "190",
+		"Z3_SENSOR_CHN": "1", "Z3_FORCING": "3", "Z3_ZONE_SET": "245",
+		"Z3_SET_CS": "240", "Z3_SET_CW": "210", "Z3_SET_ES": "245", "Z3_SET_EW": "190",
+		"Z6_SENSOR_CHN": "1", "Z6_FORCING": "0", "Z6_ZONE_SET": "0",
+		"Z6_SET_CS": "240", "Z6_SET_CW": "210", "Z6_SET_ES": "245", "Z6_SET_EW": "190",
+	}
+	b := New("SYS1", nil) // English
+	got := map[string]string{}
+	for _, m := range b.RegimeStateMessages(from) {
+		got[m.Topic] = m.Payload
+	}
+	want := map[string]string{
+		"setecna/SYS1/Z1_REGIME": "automatic eco",     // auto, ZONE_SET=ES
+		"setecna/SYS1/Z2_REGIME": "automatic comfort", // auto, ZONE_SET=CS
+		"setecna/SYS1/Z3_REGIME": "forced comfort",    // FORCING!=0, ZONE_SET=ES? no, =245=ES -> eco
+		"setecna/SYS1/Z6_REGIME": "off",               // ZONE_SET=0
+	}
+	// Z3: ZONE_SET=245=ES -> eco, FORCING=3 -> forced -> "forced eco"
+	want["setecna/SYS1/Z3_REGIME"] = "forced eco"
+	// Companion preset (live comfort/eco badge for the thermostat).
+	want["setecna/SYS1/Z1_PRESET"] = "eco"
+	want["setecna/SYS1/Z2_PRESET"] = "comfort"
+	want["setecna/SYS1/Z3_PRESET"] = "eco"
+	want["setecna/SYS1/Z6_PRESET"] = "None"
+	for topic, val := range want {
+		if got[topic] != val {
+			t.Errorf("%s = %q, want %q", topic, got[topic], val)
+		}
+	}
+}
+
+func TestRegimeLocalizedAndLabels(t *testing.T) {
+	b := New("SYS1", nil)
+	b.Language = "it"
+	from := map[string]string{
+		"Z1_SENSOR_CHN": "1", "Z1_FORCING": "0", "Z1_ZONE_SET": "245",
+		"Z1_SET_CS": "240", "Z1_SET_ES": "245",
+	}
+	var payload string
+	for _, m := range b.RegimeStateMessages(from) {
+		if m.Topic == "setecna/SYS1/Z1_REGIME" {
+			payload = m.Payload
+		}
+	}
+	if payload != "automatico eco" {
+		t.Errorf("italian regime = %q, want %q", payload, "automatico eco")
+	}
+	if got := b.localizeLabel("Thermostat"); got != "Termostato" {
+		t.Errorf("localizeLabel(Thermostat) it = %q", got)
+	}
+	if got := b.localizeLabel("Temperature"); got != "Temperatura" {
+		t.Errorf("localizeLabel(Temperature) it = %q", got)
 	}
 }

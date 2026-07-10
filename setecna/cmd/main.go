@@ -190,6 +190,7 @@ func main() {
 func run(ctx context.Context, cfg appConfig) error {
 	bridge := discovery.New(cfg.systemID, cfg.names)
 	bridge.ActiveZones = cfg.activeZones
+	bridge.Language = cfg.language
 	bridge.Diagnostics = cfg.diagnostics
 	bridge.SystemControl = cfg.systemControl
 	bridge.SeasonControl = cfg.seasonControl
@@ -250,6 +251,7 @@ func run(ctx context.Context, cfg appConfig) error {
 		mergeCleanup := bridge.MergedSubdeviceCleanup(params)
 		stateMsgs := bridge.StateMessages(snapshot, params)
 		calMsgs := bridge.CalendarStateMessages(responseMap)
+		regimeMsgs := bridge.RegimeStateMessages(responseMap)
 		upMsg := bridge.UpdateStateMessage(latestRelease, latestReleaseURL)
 		stateMu.Unlock()
 
@@ -267,11 +269,13 @@ func run(ctx context.Context, cfg appConfig) error {
 		c.BatchPublish(configMsgs)
 		c.BatchPublish(stateMsgs)
 		c.BatchPublish(calMsgs)
+		c.BatchPublish(regimeMsgs)
 		c.Publish(upMsg)
 		if cfg.debug {
 			dumpMessages("config", configMsgs)
 			dumpMessages("state", stateMsgs)
 			dumpMessages("calendar", calMsgs)
+			dumpMessages("regime", regimeMsgs)
 		}
 		slog.Info("discovery and state published", "entities", len(params), "devices", len(configMsgs))
 	}
@@ -348,6 +352,7 @@ func run(ctx context.Context, cfg appConfig) error {
 			responseMap[d.ID] = string(d.V)
 		}
 		calMsgs := bridge.CalendarStateMessages(responseMap)
+		regimeMsgs := bridge.RegimeStateMessages(responseMap)
 		season := responseMap["GLOBAL_SEASON"]
 		seasonChanged := season != currentSeason && advClimate
 		if seasonChanged {
@@ -356,9 +361,11 @@ func run(ctx context.Context, cfg appConfig) error {
 		}
 		stateMu.Unlock()
 		client.BatchPublish(calMsgs)
+		client.BatchPublish(regimeMsgs)
 		if cfg.debug {
 			dumpMessages("state", stateMsgs)
 			dumpMessages("calendar", calMsgs)
+			dumpMessages("regime", regimeMsgs)
 		}
 		if seasonChanged {
 			slog.Info("season changed, republishing climate discovery", "season", season)

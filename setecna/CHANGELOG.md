@@ -1,5 +1,18 @@
 <!-- https://developers.home-assistant.io/docs/add-ons/presentation#keeping-a-changelog -->
 
+## 1.0.8
+
+### Added
+- **Forcing control on the thermostat, with a live "eco" badge.** The climate entity now exposes the comfort/economy forcing as preset modes. The preset reflects the *current* regime, so an **eco** badge appears whenever economy is active (automatic or forced); selecting `comfort`/`eco` forces that regime and clearing the preset (None) returns to automatic. Uses the standard `eco` preset name so Amazon Alexa surfaces it as ECO too.
+
+### Fixed
+- **Zone regime now shows comfort/eco while in automatic.** The regime is no longer read from `FORCING` (which is 0 whenever there is no manual forcing, so it could only ever say "automatic"). It is now derived from the active setpoint (`ZONE_SET`) compared with the comfort (`SET_CS`/`SET_CW`) and economy (`SET_ES`/`SET_EW`) setpoints, so it correctly reports `automatic comfort`, `automatic eco`, `forced comfort`, `forced eco` or `off`.
+
+### Changed
+- **"economy" renamed to "eco"** in the regime sensor, the zone forcing selector and the calendar selectors, in all languages.
+- **Entity labels on the zone/thermostat device are now translated** by the `language` option: Thermostat, Temperature, Humidity, Setpoint, Humidity setpoint, Dew point, Calendar, Regime and Forcing (it/de/fr/es). Custom `entity_names` overrides are preserved.
+- **Humidity setpoint moved off the thermostat card.** Home Assistant labels the climate's built-in humidity control "target humidity" (in Italian "Umidità destinataria"), which cannot be renamed via MQTT discovery. The target-humidity control has been removed from the climate entity; the setpoint is now the dedicated, renamable `Z*_SET_RH` number, labelled "Set humidity" / "Umidità impostata" (it) / "Eingestellte Luftfeuchtigkeit" (de) / "Humidité réglée" (fr) / "Humedad ajustada" (es). The thermostat still shows the current humidity.
+
 ## 1.0.7
 
 ### Added
