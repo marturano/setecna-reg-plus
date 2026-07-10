@@ -24,7 +24,7 @@ import (
 
 const (
 	// Version of the add-on, shown as origin/software version in HA.
-	Version = "1.0.9"
+	Version = "1.0.11"
 
 	discoveryPrefix = "homeassistant"
 	// REBRAND: if you fork this under a different GitHub owner/repo name,
@@ -519,12 +519,14 @@ func (b *Bridge) climateComponent(zone int, season helpers.Season, withHumidity 
 	scaleDown := "{{ value | int / 10 }}"
 	scaleUp := "{{ (value * 10) | int }}"
 
-	// The zone follows its schedule, so the on state is represented as the
-	// "auto" HVAC mode (Alexa shows AUTO). "off" stays available to represent
-	// and control the off state. hvac_action still reflects heating vs cooling.
-	onMode := "auto"
+	// Single-target heat/cool mode (per season). Amazon Alexa's AUTO mode
+	// expects a min/max setpoint range; with a single target it spins without
+	// showing the temperature, so we keep the season's heat/cool mode which
+	// works with one setpoint.
+	onMode := "heat"
 	action := "heating"
 	if season == helpers.Summer {
+		onMode = "cool"
 		action = "cooling"
 	}
 
@@ -591,8 +593,8 @@ func (b *Bridge) climateComponent(zone int, season helpers.Season, withHumidity 
 		c["target_humidity_state_template"] = scaleDown
 		c["target_humidity_command_topic"] = b.CommandTopic(z + "_SET_RH")
 		c["target_humidity_command_template"] = scaleUp
-		c["min_humidity"] = 45
-		c["max_humidity"] = 75
+		c["min_humidity"] = 0
+		c["max_humidity"] = 100
 	}
 	return c
 }

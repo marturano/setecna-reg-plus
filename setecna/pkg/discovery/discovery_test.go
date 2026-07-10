@@ -152,9 +152,9 @@ func TestDeviceConfig(t *testing.T) {
 		t.Fatalf("zone_1 sub-device identifier wrong: %v", dev["identifiers"])
 	}
 
-	// The zone follows its schedule, so the on state is the "auto" HVAC mode.
-	if !strings.Contains(z1["mode_state_template"].(string), "auto") {
-		t.Fatal("climate on state must use auto mode")
+	// Winter: heat mode and single target = comfort (CW) setpoint.
+	if !strings.Contains(z1["mode_state_template"].(string), "heat") {
+		t.Fatal("winter climates must use heat mode")
 	}
 	if z1["temperature_state_topic"] != "setecna/SYS1/Z1_SET_CW" {
 		t.Fatalf("winter target setpoint topic wrong: %v", z1["temperature_state_topic"])
@@ -237,9 +237,9 @@ func TestClimateModeFromForcing(t *testing.T) {
 	if z1["mode_state_topic"] != "setecna/SYS1/Z1_FORCING" {
 		t.Fatalf("mode should read FORCING, got %v", z1["mode_state_topic"])
 	}
-	// FORCING == 1 (forced off) => off, otherwise auto.
+	// FORCING == 1 (forced off) => off, otherwise heat (winter).
 	tmpl := z1["mode_state_template"].(string)
-	if !strings.Contains(tmpl, `"1"`) || !strings.Contains(tmpl, "off") || !strings.Contains(tmpl, "auto") {
+	if !strings.Contains(tmpl, `"1"`) || !strings.Contains(tmpl, "off") || !strings.Contains(tmpl, "heat") {
 		t.Fatalf("mode template not mapping forced-off correctly: %s", tmpl)
 	}
 	// Action must come from the relay output.

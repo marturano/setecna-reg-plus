@@ -1,5 +1,15 @@
 <!-- https://developers.home-assistant.io/docs/add-ons/presentation#keeping-a-changelog -->
 
+## 1.0.11
+
+### Changed
+- **Humidity gauge now uses the full 0-100% scale** on the thermostat (was 45-75%), so the current value is easy to place between dry (below ~30%) and humid (above ~70%).
+
+## 1.0.10
+
+### Fixed
+- **Reverted the thermostat back to heat/cool mode.** The "auto" HVAC mode (1.0.9) broke Amazon Alexa: the thermostat spun on load without ever showing the temperature, because Alexa's AUTO mode expects a min/max setpoint range while this thermostat uses a single setpoint. The season's heat (winter) / cool (summer) mode works with a single setpoint.
+
 ## 1.0.9
 
 ### Changed
