@@ -164,9 +164,9 @@ func TestDeviceConfig(t *testing.T) {
 	if _, ok := z1["temperature_low_state_topic"]; ok {
 		t.Fatal("climate must expose a single target, not a low/high range")
 	}
-	// A single "eco" preset wired to FORCING: eco = forced eco (2), cleared =
-	// automatic (0). No "comfort" preset (Alexa keeps ECO stuck otherwise).
-	if got := fmt.Sprintf("%v", z1["preset_modes"]); got != "[eco]" {
+	// Two presets so the field shows Auto/Eco instead of None: auto = automatic
+	// (0), eco = forced eco (2), both wired to FORCING.
+	if got := fmt.Sprintf("%v", z1["preset_modes"]); got != "[auto eco]" {
 		t.Fatalf("climate preset_modes = %v", z1["preset_modes"])
 	}
 	if z1["preset_mode_state_topic"] != "setecna/SYS1/Z1_FORCING" {

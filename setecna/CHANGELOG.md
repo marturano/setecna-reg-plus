@@ -1,5 +1,10 @@
 <!-- https://developers.home-assistant.io/docs/add-ons/presentation#keeping-a-changelog -->
 
+## 1.0.13
+
+### Changed
+- **The thermostat preset shows "Auto" instead of "None".** Added an explicit "auto" preset next to "eco", so the preset field always reads Auto or Eco: auto = automatic (FORCING 0), eco = forced economy (FORCING 2).
+
 ## 1.0.12
 
 ### Changed
