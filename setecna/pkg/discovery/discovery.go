@@ -24,7 +24,7 @@ import (
 
 const (
 	// Version of the add-on, shown as origin/software version in HA.
-	Version = "1.0.8"
+	Version = "1.0.9"
 
 	discoveryPrefix = "homeassistant"
 	// REBRAND: if you fork this under a different GitHub owner/repo name,
@@ -519,10 +519,12 @@ func (b *Bridge) climateComponent(zone int, season helpers.Season, withHumidity 
 	scaleDown := "{{ value | int / 10 }}"
 	scaleUp := "{{ (value * 10) | int }}"
 
-	onMode := "heat"
+	// The zone follows its schedule, so the on state is represented as the
+	// "auto" HVAC mode (Alexa shows AUTO). "off" stays available to represent
+	// and control the off state. hvac_action still reflects heating vs cooling.
+	onMode := "auto"
 	action := "heating"
 	if season == helpers.Summer {
-		onMode = "cool"
 		action = "cooling"
 	}
 
@@ -558,17 +560,10 @@ func (b *Bridge) climateComponent(zone int, season helpers.Season, withHumidity 
 		"action_template": fmt.Sprintf(
 			`{%% if value == "1" %%}%s{%% else %%}idle{%% endif %%}`, action),
 
-		// Forcing exposed as preset modes: the preset shows the current regime
-		// (comfort/eco) - so an "eco" badge appears whenever economy is active,
-		// including automatic economy - and selecting a preset forces that
-		// regime (comfort=3, eco=2), while clearing it (None) returns to
-		// automatic (0). The live comfort/eco value is published by the bridge
-		// on the Z*_PRESET topic (see RegimeStateMessages). "eco" is the
-		// standard Home Assistant / Alexa preset name, so Alexa surfaces ECO.
-		"preset_modes":                 []string{"comfort", "eco"},
-		"preset_mode_state_topic":      b.StateTopic(z + "_PRESET"),
-		"preset_mode_command_topic":    b.CommandTopic(z + "_FORCING"),
-		"preset_mode_command_template": `{% if value == "comfort" %}3{% elif value == "eco" %}2{% else %}0{% endif %}`,
+		// No preset_modes: exposing "eco" as a preset makes Amazon Alexa show a
+		// persistent ECO badge and mishandle the mode selector. The regime
+		// (automatic / eco / comfort) is controlled by the separate "Forcing"
+		// select instead, and the live regime is shown by the "Regime" sensor.
 	}
 
 	// Single target temperature mapped to the comfort setpoint of the active
@@ -587,13 +582,17 @@ func (b *Bridge) climateComponent(zone int, season helpers.Season, withHumidity 
 	c["temperature_command_template"] = scaleUp
 
 	if withHumidity {
-		// Only the current humidity is shown on the thermostat. The target
-		// humidity control is intentionally NOT set here: Home Assistant labels
-		// it "target humidity" (a name we cannot override via MQTT discovery).
-		// The setpoint is exposed instead as the dedicated, renamable
-		// Z*_SET_RH number entity ("Set humidity").
+		// Shown only when the zone actually has a humidity reading (withHumidity
+		// is set from Z*_RH being present, i.e. not the sentinel). Both the
+		// current humidity and the target-humidity control are on the climate.
 		c["current_humidity_topic"] = b.StateTopic(z + "_RH")
 		c["current_humidity_template"] = scaleDown
+		c["target_humidity_state_topic"] = b.StateTopic(z + "_SET_RH")
+		c["target_humidity_state_template"] = scaleDown
+		c["target_humidity_command_topic"] = b.CommandTopic(z + "_SET_RH")
+		c["target_humidity_command_template"] = scaleUp
+		c["min_humidity"] = 45
+		c["max_humidity"] = 75
 	}
 	return c
 }
@@ -758,21 +757,6 @@ func (b *Bridge) RegimeStateMessages(from map[string]string) mqtt.Messages {
 		msgs = append(msgs, mqtt.Message{
 			Topic:   b.StateTopic(z + "_REGIME"),
 			Payload: state,
-			Qos:     0,
-			Retain:  true,
-		})
-		// Companion preset value for the thermostat: the live comfort/eco badge
-		// (standard preset names, so Alexa maps "eco" to ECO). "None" clears it.
-		preset := "None"
-		switch base {
-		case "comfort":
-			preset = "comfort"
-		case "eco":
-			preset = "eco"
-		}
-		msgs = append(msgs, mqtt.Message{
-			Topic:   b.StateTopic(z + "_PRESET"),
-			Payload: preset,
 			Qos:     0,
 			Retain:  true,
 		})

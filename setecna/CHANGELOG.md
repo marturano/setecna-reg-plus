@@ -1,5 +1,14 @@
 <!-- https://developers.home-assistant.io/docs/add-ons/presentation#keeping-a-changelog -->
 
+## 1.0.9
+
+### Changed
+- **Thermostat on state is now the "auto" HVAC mode** (instead of heat/cool), which better matches a schedule-driven zone and shows as AUTO in Amazon Alexa. `off` stays available to represent/turn off the zone.
+- **Humidity control restored on the thermostat.** The current humidity and the target-humidity control are shown on the climate again, only when the zone actually has a humidity reading.
+
+### Fixed
+- **Amazon Alexa no longer shows a stuck ECO badge.** The comfort/eco preset modes have been removed from the climate entity (Alexa mishandles the "eco" preset, showing ECO even in comfort and cluttering the mode selector with cool/off/eco). The regime is controlled by the separate "Forcing" select and shown by the "Regime" sensor. Note: Alexa's thermostat model has no "Comfort" mode and treats "eco" specially, so auto/eco/comfort cannot be exposed as Alexa thermostat modes.
+
 ## 1.0.8
 
 ### Added

@@ -2,7 +2,6 @@ package discovery
 
 import (
 	"encoding/json"
-	"fmt"
 	"strings"
 	"testing"
 
@@ -153,9 +152,9 @@ func TestDeviceConfig(t *testing.T) {
 		t.Fatalf("zone_1 sub-device identifier wrong: %v", dev["identifiers"])
 	}
 
-	// Winter: heat mode and single target = comfort (CW) setpoint.
-	if !strings.Contains(z1["mode_state_template"].(string), "heat") {
-		t.Fatal("winter climates must use heat mode")
+	// The zone follows its schedule, so the on state is the "auto" HVAC mode.
+	if !strings.Contains(z1["mode_state_template"].(string), "auto") {
+		t.Fatal("climate on state must use auto mode")
 	}
 	if z1["temperature_state_topic"] != "setecna/SYS1/Z1_SET_CW" {
 		t.Fatalf("winter target setpoint topic wrong: %v", z1["temperature_state_topic"])
@@ -164,16 +163,10 @@ func TestDeviceConfig(t *testing.T) {
 	if _, ok := z1["temperature_low_state_topic"]; ok {
 		t.Fatal("climate must expose a single target, not a low/high range")
 	}
-	// Presets expose the comfort/eco forcing on the thermostat; the preset
-	// state reads the computed Z*_PRESET topic and the command writes FORCING.
-	if got := fmt.Sprintf("%v", z1["preset_modes"]); got != "[comfort eco]" {
-		t.Fatalf("climate preset_modes = %v", z1["preset_modes"])
-	}
-	if z1["preset_mode_state_topic"] != "setecna/SYS1/Z1_PRESET" {
-		t.Fatalf("preset_mode_state_topic = %v", z1["preset_mode_state_topic"])
-	}
-	if z1["preset_mode_command_topic"] != "setecna/SYS1/Z1_FORCING/set" {
-		t.Fatalf("preset_mode_command_topic = %v", z1["preset_mode_command_topic"])
+	// Presets must NOT be exposed on the climate: the "eco" preset makes Alexa
+	// show a persistent ECO badge. The regime is a separate select instead.
+	if _, ok := z1["preset_modes"]; ok {
+		t.Fatal("climate must not expose preset_modes (breaks Alexa)")
 	}
 
 	// Every component must have platform + unique_id and state topics
@@ -244,9 +237,9 @@ func TestClimateModeFromForcing(t *testing.T) {
 	if z1["mode_state_topic"] != "setecna/SYS1/Z1_FORCING" {
 		t.Fatalf("mode should read FORCING, got %v", z1["mode_state_topic"])
 	}
-	// FORCING == 1 (forced off) => off, otherwise heat (winter).
+	// FORCING == 1 (forced off) => off, otherwise auto.
 	tmpl := z1["mode_state_template"].(string)
-	if !strings.Contains(tmpl, `"1"`) || !strings.Contains(tmpl, "off") || !strings.Contains(tmpl, "heat") {
+	if !strings.Contains(tmpl, `"1"`) || !strings.Contains(tmpl, "off") || !strings.Contains(tmpl, "auto") {
 		t.Fatalf("mode template not mapping forced-off correctly: %s", tmpl)
 	}
 	// Action must come from the relay output.
@@ -705,11 +698,6 @@ func TestRegimeStateMessages(t *testing.T) {
 	}
 	// Z3: ZONE_SET=245=ES -> eco, FORCING=3 -> forced -> "forced eco"
 	want["setecna/SYS1/Z3_REGIME"] = "forced eco"
-	// Companion preset (live comfort/eco badge for the thermostat).
-	want["setecna/SYS1/Z1_PRESET"] = "eco"
-	want["setecna/SYS1/Z2_PRESET"] = "comfort"
-	want["setecna/SYS1/Z3_PRESET"] = "eco"
-	want["setecna/SYS1/Z6_PRESET"] = "None"
 	for topic, val := range want {
 		if got[topic] != val {
 			t.Errorf("%s = %q, want %q", topic, got[topic], val)
