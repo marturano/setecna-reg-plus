@@ -24,7 +24,7 @@ import (
 
 const (
 	// Version of the add-on, shown as origin/software version in HA.
-	Version = "1.0.11"
+	Version = "1.0.12"
 
 	discoveryPrefix = "homeassistant"
 	// REBRAND: if you fork this under a different GitHub owner/repo name,
@@ -562,10 +562,16 @@ func (b *Bridge) climateComponent(zone int, season helpers.Season, withHumidity 
 		"action_template": fmt.Sprintf(
 			`{%% if value == "1" %%}%s{%% else %%}idle{%% endif %%}`, action),
 
-		// No preset_modes: exposing "eco" as a preset makes Amazon Alexa show a
-		// persistent ECO badge and mishandle the mode selector. The regime
-		// (automatic / eco / comfort) is controlled by the separate "Forcing"
-		// select instead, and the live regime is shown by the "Regime" sensor.
+		// A single "eco" preset wired straight to FORCING: ECO on = forced eco
+		// (FORCING 2), ECO off = automatic (FORCING 0). Only "eco" is exposed
+		// (no "comfort"), because Alexa understands ECO but not other presets,
+		// and a second preset kept the ECO badge stuck on. Heating/cooling and
+		// the single-setpoint temperature stay on the heat/cool mode above.
+		"preset_modes":                 []string{"eco"},
+		"preset_mode_state_topic":      b.StateTopic(z + "_FORCING"),
+		"preset_mode_value_template":   `{% if value == "2" %}eco{% else %}None{% endif %}`,
+		"preset_mode_command_topic":    b.CommandTopic(z + "_FORCING"),
+		"preset_mode_command_template": `{% if value == "eco" %}2{% else %}0{% endif %}`,
 	}
 
 	// Single target temperature mapped to the comfort setpoint of the active

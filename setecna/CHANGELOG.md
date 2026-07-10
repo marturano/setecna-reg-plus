@@ -1,5 +1,10 @@
 <!-- https://developers.home-assistant.io/docs/add-ons/presentation#keeping-a-changelog -->
 
+## 1.0.12
+
+### Changed
+- **Eco is exposed on the thermostat as a single "eco" preset wired to the forcing.** Turning the preset on forces economy (FORCING 2); turning it off returns to automatic (FORCING 0). Only "eco" is exposed (no "comfort"): Amazon Alexa understands ECO but not other presets, and a second preset was what kept Alexa's ECO badge stuck on. Temperature stays on the single-setpoint heat/cool mode. After updating, re-run Alexa device discovery so it drops the stale capability.
+
 ## 1.0.11
 
 ### Changed

@@ -2,6 +2,7 @@ package discovery
 
 import (
 	"encoding/json"
+	"fmt"
 	"strings"
 	"testing"
 
@@ -163,10 +164,16 @@ func TestDeviceConfig(t *testing.T) {
 	if _, ok := z1["temperature_low_state_topic"]; ok {
 		t.Fatal("climate must expose a single target, not a low/high range")
 	}
-	// Presets must NOT be exposed on the climate: the "eco" preset makes Alexa
-	// show a persistent ECO badge. The regime is a separate select instead.
-	if _, ok := z1["preset_modes"]; ok {
-		t.Fatal("climate must not expose preset_modes (breaks Alexa)")
+	// A single "eco" preset wired to FORCING: eco = forced eco (2), cleared =
+	// automatic (0). No "comfort" preset (Alexa keeps ECO stuck otherwise).
+	if got := fmt.Sprintf("%v", z1["preset_modes"]); got != "[eco]" {
+		t.Fatalf("climate preset_modes = %v", z1["preset_modes"])
+	}
+	if z1["preset_mode_state_topic"] != "setecna/SYS1/Z1_FORCING" {
+		t.Fatalf("preset_mode_state_topic = %v", z1["preset_mode_state_topic"])
+	}
+	if z1["preset_mode_command_topic"] != "setecna/SYS1/Z1_FORCING/set" {
+		t.Fatalf("preset_mode_command_topic = %v", z1["preset_mode_command_topic"])
 	}
 
 	// Every component must have platform + unique_id and state topics
