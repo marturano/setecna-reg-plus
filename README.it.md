@@ -25,62 +25,57 @@ Questo repository contiene l'add-on che integra un sistema termico **Setecna REG
 
 ---
 
-## Funzionalità
+## Come funziona
 
-- **Un device Home Assistant per zona** (più il device principale *Setecna REG* che raccoglie globali, ACS, circuiti, sorgenti, pompe di calore e controllore): puoi rinominare un'intera zona dalla sua pagina device (richiede Home Assistant **2024.11+**, verificato fino alla **2026.7**).
-- **Controlli master** (quando scrivibile): **on/off** impianto, **stagione** (inverno/estate) e **on/off ACS**.
-- **Entità climate native** (modalità *Integrazione avanzata*) per ogni zona attiva, con `hvac_action` riscaldamento/raffrescamento, una singola temperatura target (il setpoint comfort della stagione), preset tradotti (`eco`/`comfort`) e, dove disponibile, controllo umidità.
-- **Famiglie di dispositivi aggiuntive** esposte come diagnostica in sola lettura: unità pompa di calore e controllore cascata, cascata generatori OpenTherm (quando abilitata), uscite relè della scheda, allarmi di sistema, punto di rugiada di zona, temperature di ritorno e pompe dei circuiti, temperature delle sorgenti e totalizzatori energia a 32 bit. I canali non disponibili restano *sconosciuti* invece di mostrare valori spuri.
-- **Rinomina delle entità dalle impostazioni dell'add-on**: dai il nome a una zona e tutte le sue entità lo ereditano.
-- **Tracciamento disponibilità** tramite Last Will MQTT: le entità diventano `unavailable` se l'add-on si ferma.
-- **Auto-recupero**: re-login automatico alla scadenza della sessione Setecna, riconnessione MQTT con backoff, discovery ripubblicata al riavvio di Home Assistant, entità climate ricostruite al cambio stagione.
-- **Broker MQTT personalizzato** oppure rilevamento automatico dell'add-on Mosquitto.
-- **Entità di aggiornamento** che mostra la versione in uso e segnala nuove release su GitHub.
+I sistemi Setecna REG si gestiscono tramite il portale cloud **s5a.eu**. L'add-on accede al portale, preleva a intervalli regolari lo snapshot completo del sistema e lo ripubblica in Home Assistant via **MQTT** con la discovery basata su dispositivo; i comandi da Home Assistant vengono ritradotti in scritture sul portale.
+
+```
+Impianto Setecna REG  <->  cloud s5a.eu  <->  [ add-on ]  <->  broker MQTT  <->  Home Assistant
+```
+
+L'impianto compare come **dispositivo principale** (sensori e controlli di sistema) piu **un sotto-dispositivo per ogni zona attiva**. Gli `unique_id` delle entita sono stabili, quindi storico, dashboard e rinomine manuali sopravvivono a riavvii e aggiornamenti.
+
+## Funzionalita
+
+- **Un dispositivo Home Assistant per zona**, piu il dispositivo principale *Setecna REG* (globali, ACS, circuiti, sorgenti, contatori energia, calendari e diagnostica opzionale). Richiede Home Assistant **2024.11+**.
+- **Termostato nativo** per zona (opzionale): `heat`/`cool` a setpoint singolo + `off`, temperatura corrente e umidita corrente/impostata (0-100%) se presente la sonda. Ottimizzato per funzionare con **Amazon Alexa**.
+- Sensore **Regime** (automatico/forzato x comfort/eco in tempo reale, corretto anche a zona ferma) e selettore **Forzatura** per scavalcare il programma.
+- **Spento mostrato quando la zona e davvero spenta** (forzata o da programma), non solo quando forzata a mano.
+- **Calendari per zona**, setpoint stagionali comfort/economia, punto di rugiada, stato zona.
+- **Entita diagnostiche** (opzionali): pompe di calore, controllore a cascata, cascata OpenTherm, uscite rele, allarmi.
+- **`hide_unavailable`** (attivo di default): i canali non cablati/installati sul tuo impianto vengono nascosti invece di apparire come *sconosciuto*.
+- **Rinomina entita**, **controlli master** (sistema/stagione/ACS), **filtro zone**, **cinque lingue** (en/it/de/fr/es).
+- **Resiliente**: ri-login al cloud, riconnessione MQTT con disponibilita (Last Will), ripubblicazione al riavvio di HA, backoff sugli errori, entita di auto-aggiornamento.
 
 ## Installazione
 
-1. Verifica di usare Home Assistant **2024.11 o successivo** con un broker MQTT (es. add-on Mosquitto) e l'integrazione MQTT configurata.
-2. Usa il pulsante qui sopra, oppure aggiungi `https://github.com/marturano/setecna-reg-plus` in *Impostazioni → Add-on → Store → ⋮ → Repository*.
-3. Installa **Setecna REG PLUS**, compila la configurazione e avvialo.
+1. Aggiungi questo repository allo store degli add-on e installa **Setecna REG PLUS**.
+2. Nella **Configurazione** dell'add-on imposta almeno `systemID`, `username` e `password` (il tuo account s5a.eu).
+3. Avvia l'add-on. Il dispositivo Setecna e le sue zone compaiono in **Impostazioni -> Dispositivi e servizi -> MQTT**.
+
+Servono un broker MQTT (es. *Mosquitto broker*) e l'integrazione MQTT abilitata. Il broker viene rilevato automaticamente dal Supervisor, oppure lo imposti a mano con le opzioni `mqtt_*`.
 
 ## Configurazione
 
-| Opzione | Obbligatoria | Descrizione |
+Le opzioni piu utili (tabella completa e spiegazioni dettagliate in [`setecna/DOCS.md`](setecna/DOCS.md)):
+
+| Opzione | Default | Descrizione |
 |---|---|---|
-| `systemID` | sì | ID del sistema, visibile nell'interfaccia web s5a.eu dopo il login |
-| `username` | sì | Email dell'account s5a.eu |
-| `password` | sì | Password dell'account s5a.eu |
-| `readonly` | no (`false`) | Espone solo i sensori; non scrive mai sul sistema |
-| `adv_int` | no (`false`) | Crea entità `climate` native per zona (richiede `readonly: false`) |
-| `cleanup_legacy` | no (`true`) | Rimuove i topic di discovery per-entità delle versioni 1.x |
-| `poll_interval` | no (`30`) | Secondi tra un aggiornamento e l'altro dal cloud Setecna (10–600) |
-| `mqtt_host` | no | Host broker MQTT personalizzato. Vuoto = usa l'add-on Mosquitto |
-| `mqtt_port` | no (`1883`) | Porta del broker personalizzato (solo con `mqtt_host`) |
-| `mqtt_username` | no | Nome utente del broker personalizzato (vuoto = anonimo) |
-| `mqtt_password` | no | Password del broker personalizzato |
-| `entity_names` | no | Rinomina entità, una voce `PREFISSO=Nome` (vedi sotto) |
-| `active_zones` | no | Numeri di zona da esporre; vuoto = tutte le zone rilevate |
+| `systemID` / `username` / `password` | - | Credenziali s5a.eu **obbligatorie**. |
+| `readonly` | `false` | Solo sensori; nessun controllo creato. |
+| `adv_int` | `false` | Crea un termostato per zona (richiede `readonly: false`). |
+| `diagnostics` | `false` | Espone pompe di calore / OpenTherm / rele / allarmi. |
+| `hide_unavailable` | `true` | Nasconde i canali non disponibili invece di mostrare *sconosciuto*. |
+| `language` | `en` | `en` / `it` / `de` / `fr` / `es`. |
+| `active_zones` | `[]` | Limita quali zone esporre (vuoto = tutte). |
+| `entity_names` | `[]` | Rinomina le entita (`Z1=Bagni`, ...). |
+| `poll_interval` | `30` | Secondi tra i refresh dal cloud (10-600). |
 
-### Rinomina delle entità
-
-Aggiungi una voce `PREFISSO=Nome` per riga in `entity_names`:
-
-```
-Z1=Bagni
-Z3=Soggiorno
-C1=Miscelato pannelli
-GLOBAL_OUTPUT_3=Pompa ricircolo
-```
-
-Un **prefisso di zona** (`Z1`, `Z2`, ...) rinomina il device di quella zona e, con esso, tutte le entità della zona e il suo termostato in un colpo solo; un **id di parametro esatto** (es. `GLOBAL_OUTPUT_3`) rinomina una singola entità sul device principale. Prefissi e id fanno **distinzione tra maiuscole e minuscole** (usa `Z1`, non `z1`). All'avvio l'add-on scrive nel log le etichette personalizzate del tuo pannello Setecna da copiare.
-
-Vedi [`setecna/DOCS.md`](setecna/DOCS.md) (in inglese) per topic MQTT, entità diagnostiche, totalizzatori energia, note di aggiornamento e dettagli sulla resilienza.
+Documentazione completa (comportamento del termostato, differenza Regime/Forzatura, note Alexa, rinomina e risoluzione problemi) in **[`setecna/DOCS.md`](setecna/DOCS.md)**.
 
 ## Migrazione dall'add-on originale
 
-Se usavi l'add-on originale `homeassistant-addon-setecna` (1.x) di ingordigia, i `unique_id` delle entità restano invariati: entità, storico e dashboard si conservano. I topic di stato grezzi passano a `setecna/<systemID>/<PARAM>`; con `cleanup_legacy: true` i vecchi topic per-entità vengono rimossi al primo avvio. Se non hai mai usato l'add-on originale, installa e via. Dettagli completi nel [changelog](setecna/CHANGELOG.md).
-
----
+Gli `unique_id` delle entita non cambiano, quindi entita, storico e dashboard sono preservati. Al primo avvio `cleanup_legacy` rimuove i vecchi topic di discovery per-entita; se restano entita obsolete, riavvia Home Assistant una volta.
 
 ## Crediti
 

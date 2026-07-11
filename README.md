@@ -25,60 +25,57 @@ This repository contains the Home Assistant add-on that integrates a **Setecna R
 
 ---
 
+## How it works
+
+Setecna REG systems are managed through the **s5a.eu** cloud portal. The add-on logs into that portal, polls the full system snapshot at a regular interval and republishes everything to Home Assistant over **MQTT** using device-based discovery; commands from Home Assistant are translated back into portal writes.
+
+```
+Setecna REG plant  <->  s5a.eu cloud  <->  [ add-on ]  <->  MQTT broker  <->  Home Assistant
+```
+
+The plant appears as a **main device** (system-wide sensors and controls) plus **one sub-device per active zone**. Entity `unique_id`s are stable, so history, dashboards and manual renames survive restarts and updates.
+
 ## Features
 
-- **One Home Assistant device per zone** (plus the main *Setecna REG* device that holds globals, ACS, circuits, sources, heat pumps and the cascade controller), so a whole zone can be renamed from its device page (requires Home Assistant **2024.11+**, verified up to **2026.7**).
-- **Master controls** (when writable): plant **on/off**, **season** (winter/summer) and **ACS on/off**.
-- **Native climate entities** (optional *Advanced integration* mode) for each active zone, with heating/cooling `hvac_action`, a single target temperature (the season's comfort setpoint), translated presets (`eco`/`comfort`) and, where available, humidity control.
-- **Extra device families** exposed as read-only diagnostics (disabled by default to keep pages clean): heat-pump units and cascade controller, OpenTherm generator cascade (when enabled), board relay outputs, system alarms, zone dew point, circuit return temperatures and pumps, source temperatures, and energy-meter 32-bit totals. Unavailable channels stay *unknown* instead of showing garbage values.
-- **Entity renaming from the add-on settings**: name a zone once and all its entities follow.
-- **Availability tracking** via MQTT Last Will: entities go `unavailable` if the add-on stops.
-- **Self-healing**: automatic re-login when the Setecna session expires, MQTT auto-reconnect with backoff, discovery re-published when Home Assistant restarts, climate entities rebuilt automatically on winter/summer switch.
-- **Custom MQTT broker** support, or automatic discovery of the Mosquitto add-on.
-- **Self-update entity** that reports the running version and highlights new GitHub releases.
+- **One Home Assistant device per zone**, plus the main *Setecna REG* device (globals, ACS, circuits, sources, energy meters, calendars and optional diagnostics). Requires Home Assistant **2024.11+**.
+- **Native thermostat** per zone (optional): single-setpoint `heat`/`cool` + `off`, current temperature, and current/target humidity (0-100%) when a probe is present. Tuned to work reliably with **Amazon Alexa**.
+- **Regime** sensor (live automatic/forced x comfort/eco, correct even when idle) and a **Forcing** select to override the schedule.
+- **Off is shown when the zone is really off** (forced or by schedule), not only when manually forced.
+- **Per-zone calendars**, seasonal comfort/economy setpoints, dew point, zone state.
+- **Diagnostic entities** (optional): heat pumps, cascade controller, OpenTherm cascade, relay outputs, system alarms.
+- **`hide_unavailable`** (default on): channels not wired/installed on your system are hidden instead of showing as *unknown*.
+- **Entity renaming**, **master controls** (system/season/ACS), **zone filtering**, **five languages** (en/it/de/fr/es).
+- **Resilient**: cloud re-login, MQTT auto-reconnect with availability (Last Will), re-publish on HA restart, backoff on failures, and a self-update entity.
 
 ## Installation
 
-1. Make sure you run Home Assistant **2024.11 or newer** and have an MQTT broker (e.g. the Mosquitto broker add-on) plus the MQTT integration configured.
-2. Click the button above (or add `https://github.com/marturano/setecna-reg-plus` under *Settings → Add-ons → Add-on store → ⋮ → Repositories*).
-3. Install **Setecna REG PLUS**, fill in the configuration and start it.
+1. Add this repository to the Home Assistant add-on store and install **Setecna REG PLUS**.
+2. In the add-on **Configuration**, set at least `systemID`, `username` and `password` (your s5a.eu account).
+3. Start the add-on. The Setecna device and its zones appear under **Settings -> Devices & Services -> MQTT**.
+
+You need an MQTT broker (e.g. *Mosquitto broker*) and the MQTT integration enabled. The broker is auto-discovered via the Supervisor, or set manually with the `mqtt_*` options.
 
 ## Configuration
 
-| Option | Required | Description |
+The most useful options (see [`setecna/DOCS.md`](setecna/DOCS.md) for the full table and detailed explanations):
+
+| Option | Default | Description |
 |---|---|---|
-| `systemID` | yes | Your system ID, shown in the s5a.eu web interface once logged in |
-| `username` | yes | Your s5a.eu account email |
-| `password` | yes | Your s5a.eu account password |
-| `readonly` | no (`false`) | Only expose sensors; never write to the system |
-| `adv_int` | no (`false`) | Create native `climate` entities per zone (requires `readonly: false`) |
-| `cleanup_legacy` | no (`true`) | Remove per-entity discovery topics created by add-on v1.x |
-| `poll_interval` | no (`30`) | Seconds between refreshes from the Setecna cloud (10–600) |
-| `mqtt_host` | no | Custom MQTT broker host. Empty = auto-discover the Mosquitto add-on |
-| `mqtt_port` | no (`1883`) | Custom broker port (only with `mqtt_host`) |
-| `mqtt_username` | no | Custom broker username (empty = anonymous) |
-| `mqtt_password` | no | Custom broker password |
-| `entity_names` | no | Friendly-name overrides, one `PREFIX=Name` per entry (see below) |
-| `active_zones` | no | Zone numbers to expose; empty = all detected zones |
+| `systemID` / `username` / `password` | - | **Required** s5a.eu credentials. |
+| `readonly` | `false` | Expose sensors only; create no controls. |
+| `adv_int` | `false` | Create a thermostat per zone (needs `readonly: false`). |
+| `diagnostics` | `false` | Expose heat pumps / OpenTherm / relays / alarms. |
+| `hide_unavailable` | `true` | Hide not-available channels instead of showing *unknown*. |
+| `language` | `en` | `en` / `it` / `de` / `fr` / `es`. |
+| `active_zones` | `[]` | Limit which zones are exposed (empty = all). |
+| `entity_names` | `[]` | Rename entities (`Z1=Bagni`, ...). |
+| `poll_interval` | `30` | Seconds between cloud refreshes (10-600). |
 
-### Renaming entities
-
-Add one `PREFIX=Name` per entry under `entity_names`:
-
-```
-Z1=Bathrooms
-Z3=Living room
-C1=Panel mixing circuit
-GLOBAL_OUTPUT_3=Recirculation pump
-```
-
-A **zone prefix** (`Z1`, `Z2`, ...) renames that zone's device and, with it, every entity of the zone and its thermostat at once; an **exact parameter id** (e.g. `GLOBAL_OUTPUT_3`) renames a single entity on the main device. Prefixes and ids are **case-sensitive** (use `Z1`, not `z1`). On startup the add-on logs the custom labels stored in your Setecna panel to copy from.
-
-See [`setecna/DOCS.md`](setecna/DOCS.md) for MQTT topics, diagnostic entities, energy-meter totals, upgrade notes and resilience details.
+Full documentation, including the thermostat behaviour, the Regime-vs-Forcing distinction, Alexa notes, renaming and troubleshooting, is in **[`setecna/DOCS.md`](setecna/DOCS.md)**.
 
 ## Migrating from the original add-on
 
-If you previously ran the original `homeassistant-addon-setecna` (1.x) by ingordigia, entity `unique_id`s are unchanged, so entities, history and dashboards are preserved. Raw state topics moved to `setecna/<systemID>/<PARAM>`; with `cleanup_legacy: true` the old per-entity discovery topics are removed on first start. If you never used the original add-on, just install and go. Full details in the [changelog](setecna/CHANGELOG.md).
+Entity `unique_id`s are unchanged, so entities, history and dashboards are preserved. On first start `cleanup_legacy` removes the old per-entity discovery topics; if stale entities remain, restart Home Assistant once.
 
 ## Development
 

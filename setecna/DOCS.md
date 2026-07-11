@@ -1,106 +1,209 @@
 # DISCLAIMER
 
-This is an unofficial, community-developed integration. It is **not affiliated with, endorsed by, sponsored by, or supported in any way by SETECNA EPC Srl**, the provider of the Setecna REG system and of the s5a.eu (www.s5a.eu) remote-management portal.
+This add-on is developed by reverse engineering the Setecna web interface and is
+**not** officially supported by Setecna. Use it at your own risk. It writes to
+your heating/cooling system only when you allow it (see `readonly`).
 
-"Setecna", "Setecna REG", "s5a.eu" and any related names or logos are trademarks or property of their respective owners, used here solely for identification and interoperability. This project is developed independently, by reverse-engineering the publicly reachable s5a.eu web interface.
+# Setecna REG PLUS
 
-**No warranty.** The software is provided "as is", without warranty of any kind, express or implied, including but not limited to merchantability, fitness for a particular purpose, accuracy or non-infringement.
+Integrates a **Setecna REG** based thermal plant into Home Assistant.
 
-**Limitation of liability.** To the maximum extent permitted by law, the author(s) accept no liability for any damage, loss or cost of any kind - direct, indirect, incidental, special or consequential - arising from the use of, or inability to use, this integration. This includes, without limitation: malfunction, damage or wear of the heating/cooling plant or its components; incorrect, missing or delayed readings and commands; loss of comfort, energy waste or increased costs; data loss; interruption or suspension of the s5a.eu service or of your account.
+---
 
-**Use at your own risk.** The integration can read and, when enabled, **write** parameters to your Setecna REG system (setpoints, season, on/off, forcing, ...). Such writes change the actual behaviour of your plant. You are solely responsible for how you use it and for any change it makes to your system. This integration is **not a safety device** and must not be relied upon for any safety-critical function.
+## How it works
 
-**Third-party terms.** You are responsible for ensuring your use complies with SETECNA EPC Srl's terms of service for the Setecna REG system and the s5a.eu portal. Access may be changed or withdrawn by the provider at any time, which may stop this integration from working.
+Setecna REG systems are managed through the **s5a.eu** cloud portal. This add-on
+logs into that portal with your account, polls the full system snapshot at a
+regular interval, and republishes everything to Home Assistant over **MQTT**,
+using **device-based MQTT discovery**. Commands you send from Home Assistant are
+translated back into portal writes.
 
-Setecna REG PLUS is a fork of the original [homeassistant-addon-setecna](https://github.com/Ingordigia/homeassistant-addon-setecna) by **ingordigia**, rewritten in Go and substantially extended. Distributed under the Apache-2.0 license.
+```
+Setecna REG plant  <->  s5a.eu cloud  <->  [ add-on ]  <->  MQTT broker  <->  Home Assistant
+```
 
-# Home Assistant Add-on: Setecna REG PLUS
+Because the path is cloud based, your Home Assistant instance and the add-on
+need Internet access to s5a.eu; there is no direct local connection to the panel.
 
-> This documentation is in English. A translated overview is available in the repository README: [Italiano](https://github.com/marturano/setecna-reg-plus/blob/main/README.it.md) · [Deutsch](https://github.com/marturano/setecna-reg-plus/blob/main/README.de.md) · [Français](https://github.com/marturano/setecna-reg-plus/blob/main/README.fr.md) · [Español](https://github.com/marturano/setecna-reg-plus/blob/main/README.es.md). The add-on configuration UI is localised in English, Italian, German, French and Spanish.
+The whole plant is exposed as a **main device** (system-wide sensors and
+controls) plus one **sub-device per active zone** (its sensors, controls and
+optional thermostat). Entity `unique_id`s are stable, so history, dashboards and
+manual renames survive restarts and updates.
 
-## Why this add-on
-
-This add-on integrates your Setecna REG based thermal plant into Home Assistant. It is a web based integration: your system needs internet access to communicate with the Setecna servers (s5a.eu), and the add-on bridges that data to Home Assistant over MQTT.
-
-The add-on uses **MQTT device-based discovery** (requires Home Assistant 2024.11 or newer): the whole REG system appears as a single MQTT device with all of its sensors, controls and (optionally) native climate entities.
+---
 
 ## Prerequisites
 
-1. Home Assistant 2024.11 or newer (verified up to 2026.7: the discovery payload uses no options deprecated or removed through 2026.7, such as the removed `object_id`)
-2. An MQTT broker add-on (e.g. Mosquitto broker) installed and started
-3. The MQTT integration enabled and configured
+1. **Home Assistant 2024.11 or newer** (device-based MQTT discovery).
+2. An **MQTT broker** add-on (e.g. *Mosquitto broker*) installed and started.
+3. The **MQTT integration** enabled in Home Assistant.
 
-*By default the add-on automatically discovers the broker host, port and credentials through the Supervisor services API. Alternatively, you can point it to any external broker with the `mqtt_host` / `mqtt_port` / `mqtt_username` / `mqtt_password` options.*
+By default the add-on discovers the broker host, port and credentials
+automatically through the Supervisor. You can also point it to any external
+broker with the `mqtt_*` options.
+
+---
+
+## Installation
+
+1. Add this repository to the Home Assistant add-on store and install
+   **Setecna REG PLUS**.
+2. Open the add-on **Configuration** tab and fill in at least `systemID`,
+   `username` and `password` (your s5a.eu account; the `systemID` is shown in the
+   s5a.eu web interface once logged in).
+3. Start the add-on. Your Setecna device and its zones appear automatically under
+   **Settings -> Devices & Services -> MQTT**.
+
+---
 
 ## Configuration
 
-| Option | Required | Description |
+| Option | Default | Description |
 |---|---|---|
-| `systemID` | yes | Your system ID, visible in the s5a.eu web interface once logged in |
-| `username` | yes | Your s5a.eu account email |
-| `password` | yes | Your s5a.eu account password |
-| `readonly` | no (default `false`) | Only expose sensors; never write anything back to the system |
-| `adv_int` | no (default `false`) | Create native `climate` entities for each active zone. Requires `readonly: false` |
-| `cleanup_legacy` | no (default `true`) | On startup, publish removal messages for the per-entity discovery topics used by add-on v1.x |
-| `poll_interval` | no (default `30`) | Seconds between refreshes from the Setecna cloud (10-600) |
-| `mqtt_host` | no | Hostname/IP of a custom MQTT broker. Leave empty to auto-discover the Mosquitto broker add-on via the Supervisor |
-| `mqtt_port` | no (default `1883`) | Port of the custom MQTT broker, only used together with `mqtt_host` |
-| `mqtt_username` | no | Username for the custom broker (empty = anonymous) |
-| `mqtt_password` | no | Password for the custom broker |
-| `entity_names` | no | Friendly-name overrides, one `PREFIX=Name` per entry (see *Renaming entities* below) |
-| `active_zones` | no | Allowlist of zone numbers to expose; empty = all detected zones (see *Selecting which zones to expose* below) |
+| `systemID` | - | **Required.** Your system ID, from the s5a.eu web interface. |
+| `username` | - | **Required.** Your s5a.eu account email. |
+| `password` | - | **Required.** Your s5a.eu account password. |
+| `readonly` | `false` | Only expose sensors; never write anything back to the plant. When `true`, no controls (switches, selects, numbers, thermostats) are created. |
+| `adv_int` | `false` | Create a native `climate` (thermostat) entity for each active zone. Requires `readonly: false`. |
+| `diagnostics` | `false` | Also expose the diagnostic device families (heat pumps, cascade controller, OpenTherm, relay outputs, system alarms). |
+| `hide_unavailable` | `true` | Do not create sensors whose input reads a "not available" value on your system (they would otherwise show as *unknown*). Only genuinely unavailable channels are hidden. |
+| `language` | `en` | UI language for entity labels and option names: `en`, `it`, `de`, `fr`, `es`. |
+| `system_control` | `true` | Expose the master **System on/off** switch. |
+| `season_control` | `true` | Expose the **Season** (winter/summer) selector. |
+| `acs_control` | `true` | Expose the domestic-hot-water (ACS) controls. |
+| `active_zones` | `[]` | If non-empty, only these zone numbers are exposed (e.g. `[1, 3, 6]`); empty means all detected zones. |
+| `entity_names` | `[]` | Rename entities, one `PREFIX=Name` per entry (see *Renaming entities*). |
+| `poll_interval` | `30` | Seconds between refreshes from the s5a.eu cloud (10-600). |
+| `cleanup_legacy` | `true` | On startup, remove the per-entity discovery topics used by add-on v1.x. |
+| `debug` | `false` | Verbose logging plus a full parameter dump; use only for support. |
+| `mqtt_host` | - | Custom MQTT broker host/IP. Leave empty to auto-discover the broker via the Supervisor. |
+| `mqtt_port` | `1883` | Custom broker port (only with `mqtt_host`). |
+| `mqtt_username` | - | Custom broker username (empty = anonymous). |
+| `mqtt_password` | - | Custom broker password. |
 
-## MQTT topics
+---
 
-- Discovery (retained): `homeassistant/device/setecna_<systemID>/config`
-- Availability (retained, with Last Will): `setecna/<systemID>/availability`
-- States (retained): `setecna/<systemID>/<PARAM>`
-- Commands (from Home Assistant): `setecna/<systemID>/<PARAM>/set`
+## What you get
 
-## Migrating from the original add-on
+### Main device
 
-If you previously ran the original `homeassistant-addon-setecna` (1.x) by ingordigia, entity `unique_id`s are unchanged, so your entities, history and dashboards are preserved. What changes:
+System-wide entities, including:
 
-- Raw state topics moved from the old `homeassistant/<type>/<systemID>_<PARAM>` layout to `setecna/<systemID>/<PARAM>`. If you had automations reading the raw MQTT topics (instead of the HA entities), update them.
-- On first start, with `cleanup_legacy: true`, the add-on removes the old per-entity discovery topics left by the original add-on. If some stale entities remain, restart Home Assistant once. If you never used the original add-on, this option is harmless and can be left on.
+- **System on/off** switch and **Season** selector (winter/summer), when enabled.
+- **Domestic hot water (ACS)**: enable, temperature, comfort/economy setpoints,
+  hysteresis and delta, main output.
+- **Dew point**, de-icing state and the zone hysteresis/threshold settings.
+- **Analog inputs**, **digital inputs** and **alarms** (`ANY_ALARM` plus the
+  individual alarm words).
+- **Energy meters** (power and total imported/exported energy), when installed.
+- **Calendars** (programmed clocks) and their forcing.
+- **Last update** timestamp and the add-on **update** entity.
+- **Diagnostic entities** (only with `diagnostics: true`): heat-pump units and
+  cascade controller, OpenTherm generator cascade, board relay outputs.
 
-## Resilience
+### Per-zone sub-device
 
-- The add-on automatically re-authenticates when the s5a.eu session expires.
-- MQTT reconnects automatically; while the add-on is down all entities are marked `unavailable` via the Last Will message.
-- Discovery and states are re-published whenever Home Assistant restarts (birth message) or the broker reconnects.
-- When the system switches between winter and summer, climate entities are rebuilt automatically with the correct seasonal setpoints.
-- A self-update entity reports the running version and highlights newer GitHub releases.
+Each active zone becomes its own device with:
 
-## Selecting which zones to expose
+- **Temperature** and, if a probe is present, **humidity** and **dew point**.
+- **State** (whether the zone is currently calling for heating/cooling).
+- **Seasonal setpoints**: winter/summer comfort and economy.
+- **Set humidity** number (target humidity), when a humidity probe is present.
+- **Regime** sensor and **Forcing** select (see below).
+- **Calendar** sensor (which programmed clock drives the zone).
+- A native **thermostat** (`climate`) when Advanced integration is enabled.
 
-The controller may report zones that are configured on the panel but that you do not actually use. By default every detected zone is exposed. To limit Home Assistant to the zones you care about, list their numbers in the **Zones to expose** (`active_zones`) option, e.g. `1, 2, 3, 4, 5, 6`.
+---
 
-Zones not listed - together with all their sensors, controls and thermostat - are hidden. If they were already published to MQTT, the add-on removes them cleanly on the next start (it publishes an empty discovery config for each, as required by Home Assistant). Leave the option empty to go back to exposing every detected zone.
+## The thermostat
 
-## Controls (writable mode)
+With `adv_int: true` (and `readonly: false`) each active zone gets a `climate`
+entity:
 
-With `readonly` off, the main **Setecna REG** device exposes two plant-level controls: a **System** switch (master on/off, `GLOBAL_ENABLE`) and a **Season** selector (winter/summer, `GLOBAL_SEASON`). Per-zone control (mode, comfort setpoint, preset) is on each zone thermostat, and the economy setpoint on the zone's number entity.
+- **Mode**: the season's `heat` (winter) or `cool` (summer) when the zone is on,
+  and `off` when it is off. "Off" is shown whenever the zone is *actually* off -
+  either forced off or off by its schedule - not only when you forced it.
+  Changing the mode writes the forcing back to the plant (on -> automatic,
+  off -> forced off).
+- **Current temperature** and a single **target temperature** (the active
+  seasonal setpoint).
+- **Humidity**: when the zone has a humidity probe, the current and target
+  humidity are shown on the thermostat over a full 0-100% scale.
+- **Action**: heating / cooling / idle, reflecting the actual zone relay output.
 
-The plant-level controls can be hidden individually to avoid accidental changes: **Show System control** (`system_control`), **Show Season control** (`season_control`) and **Show ACS control** (`acs_control`), all default on.
+### Why a single setpoint (Amazon Alexa)
 
-## Dropdown labels language
+The thermostat deliberately uses a **single setpoint** with `heat`/`cool` modes.
+Amazon Alexa's `AUTO` and `ECO` thermostat modes require a *min/max* setpoint
+range; exposing them (or a climate *preset*) makes Alexa spin without ever
+showing the temperature and leaves an ECO badge stuck on. With a single setpoint
+and no presets, temperature and on/off work correctly in Alexa. Alexa has no
+"comfort" mode, so the comfort/economy regime is not exposed as an Alexa mode -
+use the **Forcing** select instead (see next section).
 
-Home Assistant cannot translate the options of MQTT dropdown/enum entities. The **Dropdown labels language** option (`language`, default `en`) localizes those options - Season, zone forcing, calendar preset and calendar mode - into English, Italian, German, French or Spanish. Entity names themselves stay in English (Home Assistant prepends the device name anyway).
+> After changing anything that affects the thermostat, re-run Alexa device
+> discovery ("Alexa, discover devices") so Alexa drops any cached capability.
 
-## Diagnostic entities
+---
 
-Raw/status/code sensors and alarm binary-sensors are created **disabled by default** to keep the device pages uncluttered. To use one, open it and enable it from its settings. Primary measurements (temperature, humidity, power, energy) are enabled by default.
+## Regime vs Forcing (important)
 
-## Devices and naming
+These two per-zone entities look similar but mean different things:
 
-The system is exposed as a main **Setecna REG** device plus one sub-device per active element (each zone, circuit, source and heat pump). Each entity is named by its measurement only ("Temperature", "Humidity", "Dew point", ...) and Home Assistant shows it as "<device name> <measurement>". The thermostat is the main entity of its zone device, so it takes the zone's name.
+- **Forcing** (select + sensor) - what *you* have manually forced. Its value is
+  `automatic` when you have not forced anything, and `economy`/`comfort`/`off`
+  only when you force it. This is the control you use to override the schedule.
+- **Regime** (sensor) - the *actual* mode currently in effect, computed from the
+  active setpoint: `automatic eco`, `automatic comfort`, `forced eco`,
+  `forced comfort`, or `off`. This tells you whether the zone is in economy or
+  comfort **even while running in automatic**, and works even when the zone is
+  idle.
 
-This means you can **rename a whole zone from Home Assistant**: open the zone device (Settings > Devices), rename it (e.g. to "Soggiorno") and every entity of that zone - and the thermostat - updates automatically. You can also regenerate entity IDs from the device page.
+So to see if a zone is currently in economy or comfort, look at **Regime**; to
+override it, use **Forcing**.
+
+---
+
+## Unavailable sensors (`hide_unavailable`)
+
+A Setecna board reports a fixed "not available" sentinel for inputs that are not
+wired or not installed (for example an external-temperature input with no probe,
+or energy meters on a system without meters). Those channels have no real value,
+so Home Assistant would show them as *unknown*.
+
+With `hide_unavailable: true` (the default) such sensors are simply **not
+created**. The filter only removes a sensor when its current value is a sentinel
+that the sensor's own formula blanks out, so a genuine reading is never dropped,
+and controls and computed sensors (regime, calendar) are never affected.
+
+The check runs at startup: if an input that reads a sentinel today becomes valid
+later, its sensor reappears after the next add-on restart. Set the option to
+`false` if you prefer to see those channels as *unknown* (e.g. to diagnose
+wiring).
+
+---
+
+## Master controls
+
+`system_control`, `season_control` and `acs_control` let you hide the
+system-wide controls you do not want exposed (for instance to prevent turning the
+whole plant off by mistake). They only affect the main device; per-zone controls
+are unaffected.
+
+---
+
+## Limiting zones (`active_zones`)
+
+Large panels can define many zones. Set `active_zones` to the list of zone
+numbers you actually use (e.g. `[1, 3, 6]`) to expose only those; leave it empty
+to expose every detected zone.
+
+---
 
 ## Renaming entities
 
-By default entities are named generically ("Zone 1 temperature", "Circuit 1 return temperature", ...). You can rename them from the add-on configuration with the **entity name overrides** option, one `PREFIX=Name` per entry:
+Entities are named generically ("Zone 1 temperature", "Circuit 1 temperature",
+...). Rename them from `entity_names`, one `PREFIX=Name` per entry:
 
 ```
 Z1=Bagni
@@ -109,40 +212,77 @@ C1=Panel mixing circuit
 GLOBAL_OUTPUT_3=Recirculation pump
 ```
 
-- A **zone prefix** (`Z1`, `Z2`, ...) renames that zone's device and, with it, every entity of the zone and its thermostat in one go: `Z1=Bagni` makes the zone device "Bagni", shown as "Bagni Temperature", "Bagni Dew point", "Bagni Thermostat", etc. Prefixes and parameter ids are **case-sensitive** (use `Z1`, not `z1`).
+- A **prefix** (`Z1`, `C1`, `S1`, `HP0`, ...) renames every entity of that
+  element and its thermostat in one go: `Z1=Bagni` gives "Bagni temperature",
+  "Bagni dew point", the "Bagni" thermostat, and so on.
 - An **exact parameter id** (e.g. `GLOBAL_OUTPUT_3`) renames a single entity.
 
-To discover which zone is which, the add-on prints, on every start, the custom labels you configured on the Setecna panel (`_FREEDESC`/`_XFREEDESC`) and the description code of each active zone. Look at the add-on log after startup and copy the labels into the option. (Automatic naming from the Setecna description codes is intentionally not done: the built-in description dictionary of the controller is not documented, so guessing could mislabel rooms.)
+To find out which zone is which, the add-on prints, on every start, the custom
+labels you set on the Setecna panel and the description code of each active zone.
+Look at the add-on log after startup and copy the labels into the option.
+(Automatic naming from the panel's description codes is intentionally not done:
+that dictionary is undocumented and guessing could mislabel rooms.)
 
-Entity `unique_id`s never change, so renaming here — or directly in the Home Assistant UI — is preserved across restarts and add-on updates.
+`unique_id`s never change, so renaming here - or directly in the Home Assistant
+UI - is preserved across restarts and updates.
 
-## Diagnostic entities (heat pumps, boilers, sources)
+---
 
-Beyond zones and circuits, the add-on exposes the heat-pump units and cascade controller, the OpenTherm generator cascade (only if enabled on your system), the board relay outputs and the system alarms, all as read-only diagnostic entities. Channels that report a "not available" sentinel are shown as *unknown* rather than a fake number.
+## Energy meter 32-bit totals
 
-Some fields (power, status, error and request codes) are exposed as **raw values** because their exact unit or encoding has not been reverse engineered yet; their names end with "(raw)" or "code". If you work out the correct scale on your system, please open an issue.
+Each energy accumulator is split by the controller into a low word (`ACCLO` /
+`ACC2LO`, exposed as kWh) and a high word (`ACCHI` / `ACC2HI`). For totals that
+exceed the 16-bit low word, reconstruct the full value with a template sensor:
 
-## Diagnostic entities
-
-By default the add-on does not create diagnostic entities (raw device codes, alarms, board outputs, heat-pump/controller status). Enable **Expose diagnostic entities** to publish them as disabled entities that you can turn on individually from Home Assistant.
-
-### Heat-pump controller values
-
-`Heat pump controller PID temperature` is in °C, `active stages` is a plain count and `required power` is in kW (the raw register holds hundredths of a kW, confirmed against 5 kW nominal stages). The other controller fields (PID output, grace timer, heating/DHW requests, status/error codes, flags) remain raw: their unit or encoding is not documented, so they are exposed as-is rather than guessed.
-
-### Energy meter 32-bit totals
-
-Each energy accumulator is split by the controller into a low word (`ACCLO`/`ACC2LO`, exposed as kWh) and a high word (`ACCHI`/`ACC2HI`). For totals that exceed the 16-bit low word, reconstruct the full value with a Home Assistant template sensor:
-
-```
+```jinja
 {{ (states('sensor.energy_meter_1_total_energy_import_high_word') | int * 65536
     + states('sensor.energy_meter_1_total_energy_import') | float * 10) / 10 }}
 ```
 
-## Climate entities
+---
 
-For each active zone the *Advanced integration* mode creates a `climate` entity:
-- The HVAC **mode** follows the zone forcing: `off` when the zone is forced off, `heat`/`cool` otherwise. Changing the mode from the card writes the forcing back to the system (heat/cool -> automatic, off -> forced off).
-- The **hvac action** (heating/cooling/idle) reflects the actual zone relay output.
-- The **zone forcing** (automatic/off/economy/comfort) is a separate `select` entity, not a thermostat preset: Amazon Alexa mis-handles the `eco` preset, so the thermostat exposes only mode + temperature.
-- A **single target temperature** maps to the season's comfort setpoint (`SET_CW` winter / `SET_CS` summer). The economy setpoint stays adjustable as its own `number` entity (`SET_EW` / `SET_ES`). A single setpoint (rather than a low/high range) is what Amazon Alexa and most UIs expect for a single-mode thermostat.
+## MQTT topics
+
+- Discovery (retained): `homeassistant/device/setecna_<systemID>/config`
+- Availability (retained, Last Will): `setecna/<systemID>/availability`
+- States (retained): `setecna/<systemID>/<PARAM>`
+- Commands (from Home Assistant): `setecna/<systemID>/<PARAM>/set`
+
+---
+
+## Resilience
+
+- Automatic re-authentication when the s5a.eu session expires.
+- MQTT auto-reconnect; while the add-on is down all entities are marked
+  `unavailable` via the Last Will message.
+- Discovery and states are re-published on broker reconnect and whenever Home
+  Assistant restarts (birth message).
+- Cloud fetch failures back off exponentially (capped at 5 minutes).
+- When the plant switches between winter and summer, thermostats are rebuilt
+  with the correct seasonal setpoints.
+- A self-update entity reports the running version and highlights newer GitHub
+  releases.
+
+---
+
+## Upgrading from add-on v1.x
+
+Entity `unique_id`s are unchanged, so entities, history and dashboards are
+preserved. Raw state topics moved from `homeassistant/<type>/<systemID>_<PARAM>`
+to `setecna/<systemID>/<PARAM>`; update any automation that read the raw MQTT
+topics directly. On first start, `cleanup_legacy: true` removes the old
+per-entity discovery topics; if some stale entities remain, restart Home
+Assistant once.
+
+---
+
+## Troubleshooting
+
+- **A control/thermostat shows a stale behaviour after an update** - Home
+  Assistant sometimes keeps a cached MQTT discovery config. Delete the affected
+  entity (or the whole Setecna device) and restart the add-on to recreate it.
+- **Alexa shows an old mode/badge** - re-run Alexa device discovery; if it
+  persists, remove the thermostat in the Alexa app and discover again.
+- **A sensor you expect is missing** - it is probably an unavailable channel
+  hidden by `hide_unavailable`. Check its raw MQTT topic value; if it reads a
+  sentinel it is genuinely not present on your system.

@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"regexp"
 	"strconv"
+	"strings"
 )
 
 type Attributes struct {
@@ -93,29 +94,21 @@ func (m ParamsMap) AddDisabledParams(from map[string]string, isReadOnly bool) {
 	m.addSystemAlarms(from, false, !isReadOnly, isReadOnly)
 }
 
-// FilterUnavailable removes read-only temperature/raw sensor entities whose
-// current value is a "not available" sentinel (or empty), i.e. the ones Home
-// Assistant would render as "unknown". Only entities using a sentinel-filtering
-// template are considered, so derived text sensors (regime, calendar), enum
-// sensors and every control (number/select/switch/climate) are always kept.
+// FilterUnavailable removes read-only sensor entities whose current value is a
+// "not available" sentinel that the entity's own template blanks out, i.e. the
+// ones Home Assistant would render as "unknown". It works for both the shared
+// sentinel-filtering templates and bespoke ones (e.g. the energy meters, whose
+// power/import templates list the sentinels inline): a value is hidden only when
+// the template explicitly treats that exact value as a sentinel, so a genuine
+// reading that merely looks like 255 is never dropped. Derived text sensors
+// (regime, calendar) have no template and are always kept, as is every control.
 func (m ParamsMap) FilterUnavailable(from map[string]string) {
-	sentinels := func(tpl string) (map[int]bool, bool) {
-		switch tpl {
-		case tplTemp16Sentinel:
-			return map[int]bool{32768: true, 32769: true, 65280: true, 65535: true}, true
-		case tplTempSigned:
-			return map[int]bool{32768: true, 32769: true}, true
-		case tplRawSentinel:
-			return map[int]bool{255: true, 32768: true, 32769: true, 65280: true, 65535: true}, true
-		}
-		return nil, false
+	sentinel := map[int]bool{255: true, 32768: true, 32769: true, 65280: true, 65535: true}
+	namedSentinelTpl := func(tpl string) bool {
+		return tpl == tplTemp16Sentinel || tpl == tplTempSigned || tpl == tplRawSentinel
 	}
 	for key, attr := range m {
-		if attr.EntityType != "sensor" {
-			continue
-		}
-		sent, ok := sentinels(attr.ValueTemplate)
-		if !ok {
+		if attr.EntityType != "sensor" || attr.ValueTemplate == "" {
 			continue
 		}
 		sk := key
@@ -124,10 +117,19 @@ func (m ParamsMap) FilterUnavailable(from map[string]string) {
 		}
 		val, present := from[sk]
 		if !present || val == "" {
-			delete(m, key)
+			// No data at all: drop the dedicated temperature/raw sensors.
+			if namedSentinelTpl(attr.ValueTemplate) {
+				delete(m, key)
+			}
 			continue
 		}
-		if n, err := strconv.Atoi(val); err == nil && sent[n] {
+		n, err := strconv.Atoi(val)
+		if err != nil {
+			continue
+		}
+		// The value is a sentinel AND the template lists it as such (so it
+		// renders empty) -> the entity is unavailable, remove it.
+		if sentinel[n] && (namedSentinelTpl(attr.ValueTemplate) || strings.Contains(attr.ValueTemplate, strconv.Itoa(n))) {
 			delete(m, key)
 		}
 	}

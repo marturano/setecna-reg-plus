@@ -203,6 +203,10 @@ func TestFilterUnavailable(t *testing.T) {
 		"Z1_FORCING": Attributes{EntityType: "sensor", ValueTemplate: tplOnOff},
 		// a control reading a sentinel -> kept (not a plain sensor)
 		"Z1_SET_RH": Attributes{EntityType: "number", ValueTemplate: tplTemp16Sentinel},
+		// energy meters: bespoke templates that list the sentinels inline.
+		"EM1_INSTANT": Attributes{EntityType: "sensor", ValueTemplate: "{% set v = value | int %}{% if v in [255, 32768, 32769, 65280, 65535] %}{% elif v >= 32768 %}{{ (v - 65536) / 100 }}{% else %}{{ v / 100 }}{% endif %}"},
+		"EM1_ACCLO":   Attributes{EntityType: "sensor", ValueTemplate: "{% set v = value | int %}{% if v not in [255, 32768, 32769, 65280, 65535] %}{{ v / 10 }}{% endif %}"},
+		"EM2_INSTANT": Attributes{EntityType: "sensor", ValueTemplate: "{% set v = value | int %}{% if v in [255, 32768, 32769, 65280, 65535] %}{% elif v >= 32768 %}{{ (v - 65536) / 100 }}{% else %}{{ v / 100 }}{% endif %}"},
 	}
 	from := map[string]string{
 		"HP0_TRET":             "32768",
@@ -211,15 +215,18 @@ func TestFilterUnavailable(t *testing.T) {
 		"SOME_RAW":             "255",
 		"Z1_FORCING":           "0",
 		"Z1_SET_RH":            "65535",
+		"EM1_INSTANT":          "32769", // n/a -> removed
+		"EM1_ACCLO":            "32769", // n/a -> removed
+		"EM2_INSTANT":          "1500",  // real 15 kW -> kept
 		// HP0_TRET etc present; Z1_REGIME intentionally absent from `from`
 	}
 	m.FilterUnavailable(from)
-	for _, gone := range []string{"HP0_TRET", "GLOBAL_EXPECTED_DEWP", "SOME_RAW"} {
+	for _, gone := range []string{"HP0_TRET", "GLOBAL_EXPECTED_DEWP", "SOME_RAW", "EM1_INSTANT", "EM1_ACCLO"} {
 		if _, ok := m[gone]; ok {
 			t.Errorf("%s should have been removed", gone)
 		}
 	}
-	for _, kept := range []string{"HP0_TFLOW", "Z1_REGIME", "Z1_FORCING", "Z1_SET_RH"} {
+	for _, kept := range []string{"HP0_TFLOW", "Z1_REGIME", "Z1_FORCING", "Z1_SET_RH", "EM2_INSTANT"} {
 		if _, ok := m[kept]; !ok {
 			t.Errorf("%s should have been kept", kept)
 		}

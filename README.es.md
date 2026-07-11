@@ -25,62 +25,57 @@ Este repositorio contiene el add-on de Home Assistant que integra un sistema té
 
 ---
 
-## Características
+## Como funciona
 
-- **Un dispositivo de Home Assistant por zona** (más el dispositivo principal *Setecna REG* que agrupa globales, ACS, circuitos, fuentes, bombas de calor y controlador): puede renombrar una zona entera desde su página de dispositivo (requiere Home Assistant **2024.11+**, verificado hasta **2026.7**).
-- **Controles principales** (cuando es escribible): **encendido/apagado** de la instalación, **temporada** (invierno/verano) y **encendido/apagado ACS**.
-- **Entidades climate nativas** (modo *Integración avanzada* opcional) para cada zona activa, con `hvac_action` de calefacción/refrigeración, una única temperatura objetivo (la consigna confort de la temporada), presets traducidos (`eco`/`comfort`) y, cuando esté disponible, control de humedad.
-- **Familias de dispositivos adicionales** expuestas como diagnóstico de solo lectura: unidades de bomba de calor y controlador de cascada, cascada de generadores OpenTherm (cuando está habilitada), salidas de relé de la placa, alarmas del sistema, punto de rocío de zona, temperaturas de retorno y bombas de los circuitos, temperaturas de las fuentes y totales de energía de 32 bits. Los canales no disponibles permanecen como *desconocido* en lugar de mostrar valores erróneos.
-- **Renombrado de entidades desde los ajustes del add-on**: nombre una zona una vez y todas sus entidades lo heredan.
-- **Seguimiento de disponibilidad** mediante MQTT Last Will: las entidades pasan a `unavailable` si el add-on se detiene.
-- **Autorreparación**: reinicio de sesión automático cuando expira la sesión de Setecna, reconexión MQTT automática con backoff, republicación del descubrimiento al reiniciar Home Assistant, reconstrucción automática de las entidades climate al cambiar invierno/verano.
-- Compatibilidad con un **broker MQTT personalizado** o detección automática del add-on Mosquitto.
-- **Entidad de actualización** que informa de la versión en ejecución y destaca las nuevas versiones de GitHub.
+Los sistemas Setecna REG se gestionan a traves del portal cloud **s5a.eu**. El add-on inicia sesion en el portal, obtiene a intervalos regulares la instantanea completa del sistema y la republica en Home Assistant por **MQTT** (descubrimiento basado en dispositivo); los comandos de Home Assistant se traducen de vuelta en escrituras en el portal.
 
-## Instalación
+```
+Instalacion Setecna REG  <->  cloud s5a.eu  <->  [ add-on ]  <->  broker MQTT  <->  Home Assistant
+```
 
-1. Asegúrese de usar Home Assistant **2024.11 o posterior** con un broker MQTT (p. ej. el add-on Mosquitto) y la integración MQTT configurada.
-2. Pulse el botón de arriba, o añada `https://github.com/marturano/setecna-reg-plus` en *Ajustes → Add-ons → Tienda de add-ons → ⋮ → Repositorios*.
-3. Instale **Setecna REG PLUS**, rellene la configuración e inícielo.
+La instalacion aparece como un **dispositivo principal** (sensores y controles del sistema) mas **un subdispositivo por zona activa**. Los `unique_id` de las entidades son estables, por lo que el historial, los paneles y los renombrados manuales se conservan entre reinicios y actualizaciones.
 
-## Configuración
+## Caracteristicas
 
-| Opción | Obligatoria | Descripción |
+- **Un dispositivo de Home Assistant por zona**, mas el dispositivo principal *Setecna REG* (globales, ACS, circuitos, fuentes, contadores de energia, calendarios y diagnosticos opcionales). Requiere Home Assistant **2024.11+**.
+- **Termostato nativo** por zona (opcional): `heat`/`cool` de consigna unica + `off`, temperatura actual y humedad actual/ajustada (0-100%) si hay sonda. Optimizado para **Amazon Alexa**.
+- Sensor **Regime** (automatico/forzado x confort/eco en tiempo real, correcto incluso con la zona en reposo) y selector **Forcing** para anular el programa.
+- **Apagado se muestra cuando la zona esta realmente apagada** (forzada o por programa), no solo al forzarla a mano.
+- **Calendarios por zona**, consignas estacionales confort/economia, punto de rocio, estado de zona.
+- **Entidades de diagnostico** (opcionales): bombas de calor, controlador en cascada, cascada OpenTherm, salidas de rele, alarmas.
+- **`hide_unavailable`** (activado por defecto): los canales no cableados/instalados se ocultan en lugar de aparecer como *desconocido*.
+- **Renombrado de entidades**, **controles maestros** (sistema/temporada/ACS), **filtro de zonas**, **cinco idiomas** (en/it/de/fr/es).
+- **Resiliente**: reinicio de sesion en el cloud, reconexion MQTT con disponibilidad (Last Will), republicacion al reiniciar HA, backoff ante errores, entidad de auto-actualizacion.
+
+## Instalacion
+
+1. Anade este repositorio a la tienda de add-ons e instala **Setecna REG PLUS**.
+2. En la **Configuracion**, indica al menos `systemID`, `username` y `password` (cuenta s5a.eu).
+3. Inicia el add-on. El dispositivo y sus zonas aparecen en **Ajustes -> Dispositivos y servicios -> MQTT**.
+
+Se necesitan un broker MQTT (p. ej. *Mosquitto broker*) y la integracion MQTT habilitada. El broker se detecta automaticamente por el Supervisor, o se define manualmente con las opciones `mqtt_*`.
+
+## Configuracion
+
+Las opciones mas utiles (tabla completa y detalles en [`setecna/DOCS.md`](setecna/DOCS.md)):
+
+| Opcion | Defecto | Descripcion |
 |---|---|---|
-| `systemID` | sí | Su ID de sistema, visible en la interfaz web s5a.eu tras iniciar sesión |
-| `username` | sí | El correo electrónico de su cuenta de s5a.eu |
-| `password` | sí | La contraseña de su cuenta de s5a.eu |
-| `readonly` | no (`false`) | Exponer solo los sensores; nunca escribir en el sistema |
-| `adv_int` | no (`false`) | Crear entidades `climate` nativas por zona (requiere `readonly: false`) |
-| `cleanup_legacy` | no (`true`) | Eliminar los topics de descubrimiento por entidad creados por la v1.x |
-| `poll_interval` | no (`30`) | Segundos entre actualizaciones desde la nube de Setecna (10–600) |
-| `mqtt_host` | no | Host del broker MQTT personalizado. Vacío = detectar el add-on Mosquitto |
-| `mqtt_port` | no (`1883`) | Puerto del broker personalizado (solo con `mqtt_host`) |
-| `mqtt_username` | no | Usuario del broker personalizado (vacío = anónimo) |
-| `mqtt_password` | no | Contraseña del broker personalizado |
-| `entity_names` | no | Renombrado de entidades, una entrada `PREFIJO=Nombre` (ver abajo) |
-| `active_zones` | no | Números de zona a exponer; vacío = todas las zonas detectadas |
+| `systemID` / `username` / `password` | - | Credenciales s5a.eu **obligatorias**. |
+| `readonly` | `false` | Solo sensores; ningun control. |
+| `adv_int` | `false` | Termostato por zona (requiere `readonly: false`). |
+| `diagnostics` | `false` | Bombas de calor / OpenTherm / reles / alarmas. |
+| `hide_unavailable` | `true` | Oculta canales no disponibles en vez de *desconocido*. |
+| `language` | `en` | `en` / `it` / `de` / `fr` / `es`. |
+| `active_zones` | `[]` | Limita las zonas expuestas (vacio = todas). |
+| `entity_names` | `[]` | Renombra entidades (`Z1=Bagni`, ...). |
+| `poll_interval` | `30` | Segundos entre refrescos del cloud (10-600). |
 
-### Renombrado de entidades
+Documentacion completa en **[`setecna/DOCS.md`](setecna/DOCS.md)**.
 
-Añada una entrada `PREFIJO=Nombre` por línea en `entity_names`:
+## Migracion desde el add-on original
 
-```
-Z1=Baños
-Z3=Salón
-C1=Circuito mezclado paneles
-GLOBAL_OUTPUT_3=Bomba de recirculación
-```
-
-Un **prefijo de zona** (`Z1`, `Z2`, ...) renombra el dispositivo de esa zona y, con él, todas las entidades de la zona y su termostato de una vez; un **id de parámetro exacto** (p. ej. `GLOBAL_OUTPUT_3`) renombra una sola entidad en el dispositivo principal. Los prefijos e ids **distinguen mayúsculas y minúsculas** (`Z1`, no `z1`). Al iniciar, el add-on registra en el log las etiquetas personalizadas de su panel Setecna para copiarlas.
-
-Consulte [`setecna/DOCS.md`](setecna/DOCS.md) (en inglés) para los topics MQTT, las entidades de diagnóstico, los totales de los contadores de energía, las notas de actualización y los detalles de resiliencia.
-
-## Migración desde el add-on original
-
-Si antes usaba el add-on original `homeassistant-addon-setecna` (1.x) de ingordigia, los `unique_id` de las entidades no cambian, por lo que se conservan las entidades, el historial y los paneles. Los topics de estado sin procesar pasan a `setecna/<systemID>/<PARAM>`; con `cleanup_legacy: true` los topics de descubrimiento por entidad antiguos se eliminan en el primer inicio. Si nunca usó el add-on original, solo instálelo. Detalles completos en el [changelog](setecna/CHANGELOG.md).
-
----
+Los `unique_id` no cambian, por lo que entidades, historial y paneles se conservan. En el primer arranque, `cleanup_legacy` elimina los antiguos topics de descubrimiento por entidad; si quedan entidades obsoletas, reinicia Home Assistant una vez.
 
 ## Créditos
 
